@@ -9,7 +9,10 @@
 -- ---------------------------------------------------------------------
 create table if not exists public.subscriptions (
   user_id            uuid primary key references auth.users (id) on delete cascade,
-  status             text not null default 'inactive'
+  -- Cópia do email do login, só para facilitar a leitura no Table Editor.
+  -- Preenchida e mantida pelos triggers abaixo; não edite à mão.
+  email              text,
+  status            text not null default 'inactive'
                        check (status in ('active', 'inactive')),
   plan               text,
   -- Opcional: se preenchido, a assinatura deixa de valer depois dessa data,
@@ -18,6 +21,9 @@ create table if not exists public.subscriptions (
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now()
 );
+
+-- Bancos criados antes da coluna email existir.
+alter table public.subscriptions add column if not exists email text;
 
 alter table public.subscriptions enable row level security;
 
@@ -58,9 +64,9 @@ security definer
 set search_path = ''
 as $$
 begin
-  insert into public.subscriptions (user_id)
-  values (new.id)
-  on conflict (user_id) do nothing;
+  insert into public.subscriptions (user_id, email)
+  values (new.id, new.email)
+  on conflict (user_id) do update set email = excluded.email;
   return new;
 end;
 $$;
@@ -70,10 +76,36 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Se o usuário trocar o email do login, atualiza a cópia na subscriptions.
+create or replace function public.handle_user_email_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.subscriptions set email = new.email where user_id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_email_changed on auth.users;
+create trigger on_auth_user_email_changed
+  after update of email on auth.users
+  for each row
+  when (old.email is distinct from new.email)
+  execute function public.handle_user_email_change();
+
 -- Usuários que já existiam antes deste script também ganham uma linha.
-insert into public.subscriptions (user_id)
-select id from auth.users
+insert into public.subscriptions (user_id, email)
+select id, email from auth.users
 on conflict (user_id) do nothing;
+
+-- Preenche o email das linhas que ainda estão sem ele (ou desatualizadas).
+update public.subscriptions s
+   set email = u.email
+  from auth.users u
+ where u.id = s.user_id and s.email is distinct from u.email;
 
 -- ---------------------------------------------------------------------
 -- 2. Log de ativações (auditoria + limite de uso)
