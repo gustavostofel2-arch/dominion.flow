@@ -16,14 +16,29 @@ function base64url(buf: Buffer): string {
 
 let cachedKey: crypto.KeyObject | null = null;
 
+/**
+ * Reconstrói um PEM limpo a partir do que foi colado no painel (Vercel, .env):
+ * tolera aspas, espaços sobrando, \n literal, CRLF e tudo numa linha só.
+ */
+export function normalizePem(raw: string): string {
+  const value = raw
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/\\n/g, "\n");
+  const match = value.match(/-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/);
+  if (!match) return value;
+  const body = match[1].replace(/\s+/g, "");
+  const lines = body.match(/.{1,64}/g) ?? [];
+  return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
+}
+
 function getPrivateKey(): crypto.KeyObject {
   if (cachedKey) return cachedKey;
 
   const pem = process.env.FLOW_PRIVATE_KEY_PEM;
   if (!pem) throw new Error("Variável de ambiente ausente: FLOW_PRIVATE_KEY_PEM");
 
-  // Aceita tanto a versão em uma linha (com \n literal) quanto a multilinha.
-  const key = crypto.createPrivateKey(pem.replace(/\\n/g, "\n"));
+  const key = crypto.createPrivateKey(normalizePem(pem));
   if (key.asymmetricKeyType !== "ed25519") {
     throw new Error(`FLOW_PRIVATE_KEY_PEM precisa ser Ed25519 (recebido: ${key.asymmetricKeyType})`);
   }
