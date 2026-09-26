@@ -43,7 +43,13 @@ fs.mkdirSync(keysDir, { recursive: true });
 fs.writeFileSync(privPath, privPem, { mode: 0o600 });
 fs.writeFileSync(pubPath, pubB64 + "\n");
 
-const prompt = fs.readFileSync(promptSrc, "utf8").replaceAll("__PUBLIC_KEY_BASE64__", pubB64);
+// Remove o cabeçalho de instruções (tudo até a primeira linha "---"): o arquivo pronto é só o prompt.
+const prompt = fs
+  .readFileSync(promptSrc, "utf8")
+  .replace(/^[sS]*?
+---?
++/, "")
+  .replaceAll("__PUBLIC_KEY_BASE64__", pubB64);
 fs.writeFileSync(promptOut, prompt);
 
 // Atualiza/insere FLOW_PRIVATE_KEY_PEM no .env.local em uma linha só.
