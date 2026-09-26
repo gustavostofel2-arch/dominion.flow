@@ -46,9 +46,7 @@ fs.writeFileSync(pubPath, pubB64 + "\n");
 // Remove o cabeçalho de instruções (tudo até a primeira linha "---"): o arquivo pronto é só o prompt.
 const prompt = fs
   .readFileSync(promptSrc, "utf8")
-  .replace(/^[sS]*?
----?
-+/, "")
+  .replace(/^[\s\S]*?\n---\r?\n+/, "")
   .replaceAll("__PUBLIC_KEY_BASE64__", pubB64);
 fs.writeFileSync(promptOut, prompt);
 
