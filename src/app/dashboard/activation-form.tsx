@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRight, ArrowUpRight, CheckIcon, CopyIcon, KeyIcon, LockIcon } from "@/components/ui";
 
 const CHALLENGE_REGEX = /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$/;
 
@@ -81,59 +82,81 @@ export default function ActivationForm({
 
   if (inactive) {
     return (
-      <section className="mt-6 rounded-2xl border border-amber-300/60 bg-amber-50 p-6 dark:border-amber-400/30 dark:bg-amber-400/10">
-        <h2 className="font-semibold">Assinatura inativa</h2>
-        <p className="mt-1 text-sm opacity-80">
+      <section className="card relative overflow-hidden p-7 sm:p-9">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-brand" aria-hidden="true" />
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+          <LockIcon size={26} />
+        </span>
+        <p className="eyebrow mt-7">Ativação bloqueada</p>
+        <h2 className="mt-3 text-[30px] font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
+          Assinatura inativa
+        </h2>
+        <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-ink-soft">
           Você precisa de uma assinatura ativa para gerar tokens de ativação. Se acabou de pagar,
           aguarde 1 minuto e atualize a página.
         </p>
         {checkoutUrl ? (
-          <a
-            href={checkoutUrl}
-            className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
-          >
-            Assinar agora
+          <a href={checkoutUrl} className="btn-primary mt-8">
+            <span>Assinar agora</span>
+            <ArrowUpRight size={20} />
           </a>
         ) : (
-          <p className="mt-4 text-sm opacity-80">Fale com o suporte para assinar.</p>
+          <p className="mt-8 rounded-2xl bg-field px-5 py-4 text-sm text-ink-soft">Fale com o suporte para assinar.</p>
         )}
       </section>
     );
   }
 
   return (
-    <section className="mt-6 rounded-2xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5">
-      <form onSubmit={onSubmit} className="space-y-4">
+    <section className="card relative overflow-hidden p-7 sm:p-9">
+      <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-cyan via-cyan to-brand" aria-hidden="true" />
+      <div className="flex items-center gap-4">
+        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ink text-cyan">
+          <KeyIcon size={26} />
+        </span>
+        <p className="eyebrow">Ativação da ferramenta</p>
+      </div>
+      <h2 className="mt-7 text-[30px] font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
+        Ative e comece a criar.
+      </h2>
+      <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+        Cole o código de sessão que aparece na ferramenta para gerar seu token de ativação.
+      </p>
+
+      <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <label className="block">
-          <span className="text-sm font-medium">Cole o código de sessão do Flow</span>
+          <span className="text-sm font-medium">Código da sessão</span>
           <input
             value={challenge}
             onChange={(e) => setChallenge(e.target.value)}
-            placeholder="XXXX-XXXX-XXXX-XXXX"
+            placeholder="ABCD-1234-EFGH-5678"
             spellCheck={false}
             autoComplete="off"
-            className="mt-1 w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 font-mono uppercase tracking-wider outline-none focus:border-violet-500 dark:border-white/15"
+            className="field mt-2 font-mono text-base uppercase tracking-[0.18em]"
           />
         </label>
         {challenge && !validFormat && (
-          <p className="text-xs opacity-70">Formato esperado: XXXX-XXXX-XXXX-XXXX (letras e números).</p>
+          <p className="text-xs text-ink-mute">Formato esperado: XXXX-XXXX-XXXX-XXXX (letras e números).</p>
         )}
-        <button
-          type="submit"
-          disabled={loading || !validFormat}
-          className="w-full rounded-lg bg-violet-600 px-4 py-2 font-medium text-white transition hover:bg-violet-700 disabled:opacity-50"
-        >
-          {loading ? "Gerando..." : "Gerar ativação"}
+        <button type="submit" disabled={loading || !validFormat} className="btn-primary">
+          <span>{loading ? "Gerando..." : "Gerar ativação"}</span>
+          <ArrowRight size={20} />
         </button>
       </form>
 
-      {error && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && (
+        <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+      )}
 
       {token && (
-        <div className="mt-6">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">Token de ativação</span>
-            <span className={expired ? "text-red-600 dark:text-red-400" : "opacity-70"}>
+        <div className="mt-8 rounded-3xl border border-line bg-field p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">Seu token de ativação</span>
+            <span
+              className={`rounded-full px-3 py-1 font-mono text-xs ${
+                expired ? "bg-red-50 text-red-700" : "bg-cyan-soft text-cyan-ink"
+              }`}
+            >
               {expired
                 ? "Expirado — gere outro"
                 : `Expira em ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
@@ -144,14 +167,15 @@ export default function ActivationForm({
             value={token}
             rows={4}
             onFocus={(e) => e.currentTarget.select()}
-            className="mt-2 w-full resize-none rounded-lg border border-black/15 bg-black/[0.03] p-3 font-mono text-xs break-all dark:border-white/15 dark:bg-white/5"
+            className="mt-4 w-full resize-none rounded-2xl border border-line bg-white p-4 font-mono text-xs leading-relaxed break-all text-ink-soft outline-none focus:border-brand"
           />
           <button
             type="button"
             onClick={copy}
             disabled={expired}
-            className="mt-2 w-full rounded-lg border border-violet-600 px-4 py-2 font-medium text-violet-700 hover:bg-violet-50 disabled:opacity-50 dark:text-violet-300 dark:hover:bg-violet-500/10"
+            className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-ink bg-ink text-[13px] font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-ink/90 disabled:opacity-40"
           >
+            {copied ? <CheckIcon size={18} /> : <CopyIcon size={18} />}
             {copied ? "Copiado!" : "Copiar token"}
           </button>
         </div>

@@ -14,9 +14,9 @@ export default function SignOutButton() {
         router.replace("/login");
         router.refresh();
       }}
-      className="shrink-0 rounded-lg border border-black/15 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+      className="btn-ghost"
     >
-      Sair
+      Sair da conta
     </button>
   );
 }

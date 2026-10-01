@@ -1,26 +1,58 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f7f7f8;
-  --foreground: #16161a;
-}
-
+/* Identidade Dominion: página off-white com grade (frame), cartões brancos,
+   rosa como ação principal e ciano como destaque. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-page: #f5f4f0;
+  --color-card: #ffffff;
+  --color-field: #faf9f7;
+  --color-line: #e7e5e0;
+  --color-line-strong: #d6d3cc;
+  --color-ink: #18181b;
+  --color-ink-soft: #52525b;
+  --color-ink-mute: #8a8a93;
+
+  --color-brand: #fe2c55;
+  --color-brand-hover: #e91e48;
+  --color-brand-soft: #fff0f3;
+  --color-cyan: #25f4ee;
+  --color-cyan-ink: #0c8c86;
+  --color-cyan-soft: #e9fdfc;
+  --color-violet: #7c5cff;
+
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0c0c0f;
-    --foreground: #ededf0;
-  }
+html {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  color: var(--color-ink);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background-color: var(--color-page);
+  background-image:
+    linear-gradient(to right, rgba(24, 24, 27, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(24, 24, 27, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-attachment: fixed;
+}
+
+@layer components {
+  .eyebrow {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.28em] text-ink-mute;
+  }
+  .card {
+    @apply rounded-[28px] border border-line bg-card shadow-[0_1px_0_rgba(24,24,27,0.04),0_24px_48px_-32px_rgba(24,24,27,0.25)];
+  }
+  .field {
+    @apply h-14 w-full rounded-2xl border border-line bg-field px-5 text-[15px] text-ink outline-none transition placeholder:text-ink-mute/80 focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10;
+  }
+  .btn-primary {
+    @apply inline-flex h-14 w-full items-center justify-between gap-3 rounded-2xl bg-brand px-6 text-[13px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_14px_30px_-12px_rgba(254,44,85,0.65)] transition hover:bg-brand-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none;
+  }
+  .btn-ghost {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-medium text-ink-soft transition hover:border-line-strong hover:text-ink;
+  }
 }

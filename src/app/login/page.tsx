@@ -4,51 +4,40 @@ import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ArrowRight, Brand, EyeIcon, FilmIcon, Footer, NodesIcon } from "@/components/ui";
 
 type Mode = "login" | "signup";
-
-const INPUT_CLASS =
-  "w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 outline-none focus:border-violet-500 dark:border-white/15";
-
-function EyeIcon({ open }: { open: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-      <circle cx="12" cy="12" r="3" />
-      {!open && <path d="M3 3l18 18" />}
-    </svg>
-  );
-}
 
 function PasswordInput(props: {
   value: string;
   onChange: (v: string) => void;
   autoComplete: string;
   minLength: number;
+  placeholder?: string;
   invalid?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className="relative mt-1">
+    <div className="relative mt-2">
       <input
         type={visible ? "text" : "password"}
         required
         minLength={props.minLength}
         autoComplete={props.autoComplete}
+        placeholder={props.placeholder}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         aria-invalid={props.invalid || undefined}
-        className={`${INPUT_CLASS} pr-11 ${props.invalid ? "border-red-500 dark:border-red-400" : ""}`}
+        className={`field pr-14 ${props.invalid ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : ""}`}
       />
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? "Esconder senha" : "Mostrar senha"}
         title={visible ? "Esconder senha" : "Mostrar senha"}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center opacity-60 hover:opacity-100"
+        className="absolute inset-y-0 right-0 flex w-14 items-center justify-center text-ink-mute transition hover:text-ink"
       >
-        <EyeIcon open={visible} />
+        <EyeIcon open={visible} size={20} />
       </button>
     </div>
   );
@@ -121,85 +110,147 @@ function LoginForm() {
     router.refresh();
   }
 
+  const isSignup = mode === "signup";
+
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">Dominion Flow</h1>
-        <p className="mt-1 text-sm opacity-70">
-          {mode === "login"
-            ? "Entre para gerar sua ativação."
-            : "Use o mesmo e-mail da sua compra e escolha uma senha."}
-        </p>
+    <div className="flex min-h-full flex-1 flex-col">
+      <header className="border-b border-line bg-white/70 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl items-center px-5 py-4">
+          <Brand />
+        </div>
+      </header>
 
-        <form
-          onSubmit={onSubmit}
-          className="mt-6 space-y-4 rounded-2xl border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/5"
-        >
-          <label className="block">
-            <span className="text-sm font-medium">Email</span>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={`mt-1 ${INPUT_CLASS}`}
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Senha</span>
-            <PasswordInput
-              key={mode}
-              value={password}
-              onChange={setPassword}
-              minLength={mode === "signup" ? 8 : 6}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-            />
-            {mode === "signup" && <span className="mt-1 block text-xs opacity-60">Mínimo de 8 caracteres.</span>}
-          </label>
+      <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-5 py-10 lg:grid-cols-[1.1fr_0.9fr] lg:py-16">
+        {/* Apresentação (só em telas largas) */}
+        <section className="hidden lg:block">
+          <p className="eyebrow">Seu próximo projeto começa aqui</p>
+          <h1 className="mt-6 text-[64px] font-semibold leading-[0.98] tracking-[-0.04em]">
+            Menos etapas.
+            <br />
+            <span className="relative inline-block">
+              <span className="relative z-10">Mais criação.</span>
+              <span className="absolute inset-x-0 bottom-1 z-0 h-5 bg-brand/85" aria-hidden="true" />
+            </span>
+          </h1>
+          <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft">
+            Entre na sua área de membros, ative suas ferramentas e transforme ideias em imagens e vídeos.
+          </p>
 
-          {mode === "signup" && (
+          <div className="mt-10 grid max-w-md gap-3">
+            <div className="flex items-center gap-4 rounded-2xl border border-line bg-white/80 p-4">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-soft text-cyan-ink">
+                <NodesIcon size={22} />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold">Dominion Flow</span>
+                <span className="block text-sm text-ink-soft">Workflows em nodes, no estilo Freepik.</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-4 rounded-2xl border border-line bg-white/80 p-4">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-brand">
+                <FilmIcon size={22} />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold">Dominion Creator</span>
+                <span className="block text-sm text-ink-soft">Da foto do produto aos vídeos prontos.</span>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Formulário */}
+        <section className="card mx-auto w-full max-w-md p-7 sm:p-10">
+          <p className="eyebrow">Bem-vindo à Dominion</p>
+          <h2 className="mt-4 text-[32px] font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
+            {isSignup ? "Crie seu acesso" : "Entre no seu espaço"}
+          </h2>
+          <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
+            {isSignup
+              ? "Use o mesmo e-mail informado na compra e escolha uma senha."
+              : "Use o e-mail da sua compra para continuar."}
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-8 space-y-5">
             <label className="block">
-              <span className="text-sm font-medium">Confirme a senha</span>
-              <PasswordInput
-                value={confirm}
-                onChange={setConfirm}
-                minLength={8}
-                autoComplete="new-password"
-                invalid={confirm.length > 0 && confirm !== password}
+              <span className="text-sm font-medium">E-mail da compra</span>
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="voce@exemplo.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="field mt-2"
               />
-              {confirm.length > 0 && confirm !== password && (
-                <span className="mt-1 block text-xs text-red-600 dark:text-red-400">As senhas não conferem.</span>
-              )}
             </label>
-          )}
 
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          {info && <p className="text-sm text-emerald-700 dark:text-emerald-400">{info}</p>}
+            <label className="block">
+              <span className="text-sm font-medium">Senha</span>
+              <PasswordInput
+                key={mode}
+                value={password}
+                onChange={setPassword}
+                minLength={isSignup ? 8 : 6}
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                placeholder={isSignup ? "Pelo menos 8 caracteres" : "Sua senha"}
+              />
+            </label>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-violet-600 px-4 py-2 font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
-          >
-            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar acesso"}
-          </button>
-        </form>
+            {isSignup && (
+              <label className="block">
+                <span className="text-sm font-medium">Confirme a senha</span>
+                <PasswordInput
+                  value={confirm}
+                  onChange={setConfirm}
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="Digite a senha de novo"
+                  invalid={confirm.length > 0 && confirm !== password}
+                />
+                {confirm.length > 0 && confirm !== password && (
+                  <span className="mt-2 block text-xs text-red-600">As senhas não conferem.</span>
+                )}
+              </label>
+            )}
 
-        <button
-          type="button"
-          onClick={() => {
-            setMode(mode === "login" ? "signup" : "login");
-            setConfirm("");
-            setError(null);
-            setInfo(null);
-          }}
-          className="mt-4 w-full text-center text-sm opacity-70 hover:opacity-100"
-        >
-          {mode === "login" ? "Primeiro acesso? Criar acesso" : "Já tem acesso? Entrar"}
-        </button>
-      </div>
-    </main>
+            {error && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+            )}
+            {info && (
+              <p className="rounded-xl border border-cyan/40 bg-cyan-soft px-4 py-3 text-sm text-cyan-ink">{info}</p>
+            )}
+
+            <button type="submit" disabled={loading} className="btn-primary">
+              <span>{loading ? "Aguarde..." : isSignup ? "Criar meu acesso" : "Entrar na minha conta"}</span>
+              <ArrowRight size={20} />
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-ink-soft">
+            {isSignup ? "Já tem acesso? " : "Primeiro acesso? "}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setConfirm("");
+                setError(null);
+                setInfo(null);
+              }}
+              className="font-semibold text-brand hover:underline"
+            >
+              {isSignup ? "Entrar" : "Criar meu acesso"}
+            </button>
+          </p>
+
+          <p className="mt-8 border-t border-line pt-6 text-[13px] leading-relaxed text-ink-mute">
+            O acesso é liberado após a confirmação da compra. No primeiro acesso, crie sua conta com o mesmo
+            e-mail do pagamento.
+          </p>
+        </section>
+      </main>
+
+      <Footer />
+    </div>
   );
 }
 
