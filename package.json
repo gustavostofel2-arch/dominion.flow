@@ -10,7 +10,8 @@
     "keys": "node scripts/generate-keys.mjs",
     "token:sign": "node scripts/sign-test-token.mjs",
     "token:verify": "node scripts/verify-token.mjs",
-    "lastlink:secret": "node scripts/lastlink-secret.mjs"
+    "lastlink:secret": "node scripts/lastlink-secret.mjs",
+    "lastlink:sim": "node scripts/simulate-lastlink.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
