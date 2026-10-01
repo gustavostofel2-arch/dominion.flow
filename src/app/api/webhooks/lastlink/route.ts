@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   const options = {
     access_months: intEnv("LASTLINK_PERIOD_MONTHS", 1),
-    grace_days: intEnv("LASTLINK_GRACE_DAYS", 3),
+    grace_days: intEnv("LASTLINK_GRACE_DAYS", 0),
     apply_test: process.env.LASTLINK_APPLY_TEST_EVENTS === "true",
     product_ids: productIds,
     meta: { header_names: headerNames, lastlink_token_matched: tokenMatched },

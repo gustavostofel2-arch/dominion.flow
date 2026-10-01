@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FlowSpace — Ativação",
-  description: "Gere o token de ativação da sua Tool FlowSpace.",
+  title: "Dominion Flow — Ativação",
+  description: "Gere o token de ativação da sua ferramenta Dominion Flow.",
   robots: { index: false, follow: false },
 };
 

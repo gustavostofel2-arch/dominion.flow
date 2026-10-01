@@ -112,10 +112,9 @@ delete from public.subscriptions where email is null or email = '';
 alter table public.subscriptions alter column email set not null;
 
 -- Assinaturas da Lastlink criadas antes da coluna next_billing_at: recalcula
--- (renovação = último pagamento + 1 mês; acesso = renovação + 3 dias, ou só a renovação se cancelou).
+-- (renovação = último pagamento + 1 mês; o acesso vai até a renovação).
 update public.subscriptions
    set current_period_end = last_payment_at + interval '1 month'
-                            + case when cancel_at_period_end then interval '0' else interval '3 days' end
  where next_billing_at is null and source = 'lastlink' and last_payment_at is not null;
 update public.subscriptions
    set next_billing_at = last_payment_at + interval '1 month'
@@ -287,9 +286,10 @@ declare
   v_test        boolean := coalesce((p_payload->>'IsTest')::boolean, false);
   v_data        jsonb := coalesce(p_payload->'Data', '{}'::jsonb);
   v_created     timestamptz := coalesce(public.lastlink_ts(p_payload->>'CreatedAt'), now());
-  -- Período pago (mensal = 1 mês de calendário, igual à Lastlink) e tolerância para a renovação cair.
+  -- Período pago (mensal = 1 mês de calendário, igual à Lastlink). Sem tolerância por padrão:
+  -- não renovou até a data, o acesso corta (grace_days permite dar dias extras, se um dia quiser).
   v_period      interval := make_interval(months => coalesce((p_options->>'access_months')::int, 1));
-  v_grace       interval := make_interval(days => coalesce((p_options->>'grace_days')::int, 3));
+  v_grace       interval := make_interval(days => coalesce((p_options->>'grace_days')::int, 0));
   v_next        timestamptz;
   v_apply_test  boolean := coalesce((p_options->>'apply_test')::boolean, false);
   v_products    text[] := coalesce(array(select jsonb_array_elements_text(p_options->'product_ids')), '{}');

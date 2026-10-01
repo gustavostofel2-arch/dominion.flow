@@ -7,12 +7,60 @@ import { createClient } from "@/lib/supabase/client";
 
 type Mode = "login" | "signup";
 
+const INPUT_CLASS =
+  "w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 outline-none focus:border-violet-500 dark:border-white/15";
+
+function EyeIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {!open && <path d="M3 3l18 18" />}
+    </svg>
+  );
+}
+
+function PasswordInput(props: {
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete: string;
+  minLength: number;
+  invalid?: boolean;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative mt-1">
+      <input
+        type={visible ? "text" : "password"}
+        required
+        minLength={props.minLength}
+        autoComplete={props.autoComplete}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        aria-invalid={props.invalid || undefined}
+        className={`${INPUT_CLASS} pr-11 ${props.invalid ? "border-red-500 dark:border-red-400" : ""}`}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? "Esconder senha" : "Mostrar senha"}
+        title={visible ? "Esconder senha" : "Mostrar senha"}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center opacity-60 hover:opacity-100"
+      >
+        <EyeIcon open={visible} />
+      </button>
+    </div>
+  );
+}
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const [mode, setMode] = useState<Mode>(params.get("modo") === "criar" ? "signup" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(
     params.get("erro") === "confirmacao" ? "Link de confirmação inválido ou expirado." : null,
@@ -21,6 +69,10 @@ function LoginForm() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (mode === "signup" && password !== confirm) {
+      setError("As senhas não conferem. Digite a mesma senha nos dois campos.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setInfo(null);
@@ -91,21 +143,36 @@ function LoginForm() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 outline-none focus:border-violet-500 dark:border-white/15"
+              className={`mt-1 ${INPUT_CLASS}`}
             />
           </label>
           <label className="block">
             <span className="text-sm font-medium">Senha</span>
-            <input
-              type="password"
-              required
+            <PasswordInput
+              key={mode}
+              value={password}
+              onChange={setPassword}
               minLength={mode === "signup" ? 8 : 6}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 outline-none focus:border-violet-500 dark:border-white/15"
             />
+            {mode === "signup" && <span className="mt-1 block text-xs opacity-60">Mínimo de 8 caracteres.</span>}
           </label>
+
+          {mode === "signup" && (
+            <label className="block">
+              <span className="text-sm font-medium">Confirme a senha</span>
+              <PasswordInput
+                value={confirm}
+                onChange={setConfirm}
+                minLength={8}
+                autoComplete="new-password"
+                invalid={confirm.length > 0 && confirm !== password}
+              />
+              {confirm.length > 0 && confirm !== password && (
+                <span className="mt-1 block text-xs text-red-600 dark:text-red-400">As senhas não conferem.</span>
+              )}
+            </label>
+          )}
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           {info && <p className="text-sm text-emerald-700 dark:text-emerald-400">{info}</p>}
@@ -123,6 +190,7 @@ function LoginForm() {
           type="button"
           onClick={() => {
             setMode(mode === "login" ? "signup" : "login");
+            setConfirm("");
             setError(null);
             setInfo(null);
           }}
