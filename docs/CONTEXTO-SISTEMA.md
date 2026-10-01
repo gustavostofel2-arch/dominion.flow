@@ -248,7 +248,7 @@ quando confirmado, dá para exigir com `LASTLINK_REQUIRE_TOKEN=true`.
 | `Purchase_Request_*`, `Refund_Requested`, `Refund_Period_Over`, `Active_Member_Notification` | Só atualiza dados de contato |
 | `Abandoned_Cart` e desconhecidos | Só registra o aviso |
 
-**Proteções:** aviso repetido (mesmo `Id`) é ignorado; aviso mais antigo que o último
+**Proteções:** nomes de evento comparados sem diferenciar maiúsculas (a Lastlink usa grafias diferentes, ex.: `Product_access_started`, `Subscription_Product_Acess`); aviso repetido (mesmo `Id`) é ignorado e o mesmo evento com `Id` diferente (a Lastlink avisa que pode duplicar) dá o mesmo resultado; aviso mais antigo que o último
 aplicado é ignorado (`stale_ignored`); reembolso/cancelamento de uma assinatura
 **antiga** não derruba a nova (`other_subscription_ignored`); eventos de teste
 (`IsTest`) não mexem em clientes reais; produtos fora de `LASTLINK_PRODUCT_IDS`

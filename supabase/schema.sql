@@ -269,6 +269,9 @@ as $$
 declare
   v_id          text := p_payload->>'Id';
   v_event       text := p_payload->>'Event';
+  -- A Lastlink escreve alguns nomes com grafias diferentes (ex.: Product_access_started,
+  -- Subscription_Product_Acess): a classificação usa o nome em minúsculas.
+  v_ev          text := lower(btrim(coalesce(p_payload->>'Event', '')));
   v_test        boolean := coalesce((p_payload->>'IsTest')::boolean, false);
   v_data        jsonb := coalesce(p_payload->'Data', '{}'::jsonb);
   v_created     timestamptz := coalesce(public.lastlink_ts(p_payload->>'CreatedAt'), now());
@@ -304,15 +307,15 @@ begin
 
   -- Classificação do evento.
   v_kind := case
-    when v_event in ('Purchase_Order_Confirmed', 'Recurrent_Payment') then 'payment'
-    when v_event = 'Product_Access_Started'
-      or (v_event = 'Subscription_Product_Access' and v_action = 'add') then 'access_add'
-    when v_event in ('Subscription_Expired', 'Payment_Refund', 'Payment_Chargeback', 'Product_Access_Ended')
-      or (v_event = 'Subscription_Product_Access' and v_action = 'remove') then 'revoke'
-    when v_event = 'Subscription_Canceled' then 'cancel'
-    when v_event = 'Subscription_Renewal_Pending' then 'renewal_pending'
-    when v_event in ('Purchase_Request_Confirmed', 'Purchase_Request_Canceled', 'Purchase_Request_Expired',
-                     'Refund_Requested', 'Refund_Period_Over', 'Active_Member_Notification') then 'info'
+    when v_ev in ('purchase_order_confirmed', 'recurrent_payment') then 'payment'
+    when v_ev = 'product_access_started'
+      or (v_ev in ('subscription_product_access', 'subscription_product_acess') and v_action = 'add') then 'access_add'
+    when v_ev in ('subscription_expired', 'payment_refund', 'payment_chargeback', 'product_access_ended')
+      or (v_ev in ('subscription_product_access', 'subscription_product_acess') and v_action = 'remove') then 'revoke'
+    when v_ev in ('subscription_canceled', 'subscription_cancelled') then 'cancel'
+    when v_ev = 'subscription_renewal_pending' then 'renewal_pending'
+    when v_ev in ('purchase_request_confirmed', 'purchase_request_canceled', 'purchase_request_expired',
+                  'refund_requested', 'refund_period_over', 'active_member_notification') then 'info'
     else 'log_only'  -- Abandoned_Cart e eventos desconhecidos
   end;
 
@@ -419,8 +422,8 @@ begin
     elsif v_kind = 'revoke' then
       update public.subscriptions set
         status          = 'inactive',
-        refunded_at     = case when v_event = 'Payment_Refund' then v_created else refunded_at end,
-        chargeback_at   = case when v_event = 'Payment_Chargeback'
+        refunded_at     = case when v_ev = 'payment_refund' then v_created else refunded_at end,
+        chargeback_at   = case when v_ev = 'payment_chargeback'
                                then coalesce(public.lastlink_ts(v_data#>>'{Purchase,ChargebackDate}'), v_created)
                                else chargeback_at end,
         renewal_pending = false,
