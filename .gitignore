@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# relatórios gerados localmente (contêm dados pessoais)
+/docs/*.pdf

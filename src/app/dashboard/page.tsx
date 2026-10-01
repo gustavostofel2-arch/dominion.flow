@@ -15,12 +15,18 @@ export default async function DashboardPage() {
 
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("status, plan, current_period_end, cancel_at_period_end")
+    .select("status, plan, current_period_end, cancel_at_period_end, next_billing_at")
     .eq("user_id", user.id)
     .maybeSingle<Subscription>();
 
   const active = isSubscriptionActive(sub);
-  const until = sub?.current_period_end ? new Date(sub.current_period_end).toLocaleDateString("pt-BR") : null;
+  const fmt = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
+  // Cancelada: acesso até o fim do período pago. Ativa: mostra a próxima renovação
+  // (a tolerância de alguns dias depois dela não é exibida). Manual: data de validade.
+  const until = sub?.cancel_at_period_end
+    ? fmt(sub.current_period_end)
+    : (fmt(sub?.next_billing_at) ?? fmt(sub?.current_period_end));
 
   return (
     <main className="mx-auto w-full max-w-xl flex-1 px-4 py-10">
@@ -45,7 +51,8 @@ export default async function DashboardPage() {
         {active && sub?.plan && <span className="opacity-70">Plano: {sub.plan}</span>}
         {active && until && (
           <span className="opacity-70">
-            · {sub?.cancel_at_period_end ? "renovação cancelada, acesso até" : "acesso até"} {until}
+            · {sub?.cancel_at_period_end ? "renovação cancelada, acesso até" : sub?.next_billing_at ? "renova em" : "acesso até"}{" "}
+            {until}
           </span>
         )}
       </div>

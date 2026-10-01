@@ -240,9 +240,9 @@ quando confirmado, dá para exigir com `LASTLINK_REQUIRE_TOKEN=true`.
 **O que cada evento faz:**
 | Evento Lastlink | Efeito |
 |---|---|
-| `Purchase_Order_Confirmed` (Compra Completa), `Recurrent_Payment` (Renovação) | **active**; acesso até data do pagamento + 30 dias + 3 de tolerância; grava valor, método, recorrência |
+| `Purchase_Order_Confirmed` (Compra Completa), `Recurrent_Payment` (Renovação) | **active**; renova em = pagamento + 1 mês (igual ao "Renova em" da Lastlink, ou o `NextBilling` dela se vier); acesso até a renovação + 3 dias de tolerância; grava valor, método, recorrência |
 | `Product_Access_Started`, `Subscription_Product_Access` (Add) | **active** |
-| `Subscription_Canceled` | **Continua ativo até o fim do período pago** (`cancel_at_period_end = true`); grava motivo |
+| `Subscription_Canceled` | **Continua ativo até a data de renovação (sem tolerância)** (`cancel_at_period_end = true`); grava motivo |
 | `Subscription_Expired`, `Payment_Refund`, `Payment_Chargeback`, `Product_Access_Ended`, `Subscription_Product_Access` (Remove) | **inactive** na hora |
 | `Subscription_Renewal_Pending` | Marca `renewal_pending`; não derruba (a tolerância cobre) |
 | `Purchase_Request_*`, `Refund_Requested`, `Refund_Period_Over`, `Active_Member_Notification` | Só atualiza dados de contato |
@@ -264,7 +264,7 @@ Senha esquecida: redefinir pelo SQL do fim do `schema.sql` (até configurar o Re
 
 **Variáveis novas na Vercel:** `LASTLINK_WEBHOOK_SECRET` (obrigatória; gerada com
 `npm run lastlink:secret`, fica em `keys/lastlink-webhook.txt`), `LASTLINK_TOKEN`,
-`LASTLINK_REQUIRE_TOKEN`, `LASTLINK_PRODUCT_IDS`, `LASTLINK_ACCESS_DAYS` (30),
+`LASTLINK_REQUIRE_TOKEN`, `LASTLINK_PRODUCT_IDS`, `LASTLINK_PERIOD_MONTHS` (1 = mensal),
 `LASTLINK_GRACE_DAYS` (3), `LASTLINK_APPLY_TEST_EVENTS` (false), `NEXT_PUBLIC_CHECKOUT_URL`.
 
 **Diagnóstico:**

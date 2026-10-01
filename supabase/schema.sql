@@ -95,6 +95,8 @@ alter table public.subscriptions add column if not exists cancellation_reason   
 alter table public.subscriptions add column if not exists refunded_at              timestamptz;
 alter table public.subscriptions add column if not exists chargeback_at            timestamptz;
 alter table public.subscriptions add column if not exists renewal_pending          boolean not null default false;
+-- Próxima cobrança (igual ao "Renova em" da Lastlink). O acesso vai até ela + tolerância.
+alter table public.subscriptions add column if not exists next_billing_at          timestamptz;
 alter table public.subscriptions add column if not exists last_event               text;
 alter table public.subscriptions add column if not exists last_event_at            timestamptz;
 -- Data do último evento que mudou o status (para ignorar avisos fora de ordem).
@@ -108,6 +110,16 @@ update public.subscriptions s
 update public.subscriptions set email = lower(trim(email)) where email <> lower(trim(email));
 delete from public.subscriptions where email is null or email = '';
 alter table public.subscriptions alter column email set not null;
+
+-- Assinaturas da Lastlink criadas antes da coluna next_billing_at: recalcula
+-- (renovação = último pagamento + 1 mês; acesso = renovação + 3 dias, ou só a renovação se cancelou).
+update public.subscriptions
+   set current_period_end = last_payment_at + interval '1 month'
+                            + case when cancel_at_period_end then interval '0' else interval '3 days' end
+ where next_billing_at is null and source = 'lastlink' and last_payment_at is not null;
+update public.subscriptions
+   set next_billing_at = last_payment_at + interval '1 month'
+ where next_billing_at is null and source = 'lastlink' and last_payment_at is not null;
 
 create unique index if not exists subscriptions_email_key   on public.subscriptions (email);
 create unique index if not exists subscriptions_user_id_key on public.subscriptions (user_id);
@@ -275,8 +287,10 @@ declare
   v_test        boolean := coalesce((p_payload->>'IsTest')::boolean, false);
   v_data        jsonb := coalesce(p_payload->'Data', '{}'::jsonb);
   v_created     timestamptz := coalesce(public.lastlink_ts(p_payload->>'CreatedAt'), now());
-  v_access      interval := make_interval(days => coalesce((p_options->>'access_days')::int, 30)
-                                              + coalesce((p_options->>'grace_days')::int, 3));
+  -- Período pago (mensal = 1 mês de calendário, igual à Lastlink) e tolerância para a renovação cair.
+  v_period      interval := make_interval(months => coalesce((p_options->>'access_months')::int, 1));
+  v_grace       interval := make_interval(days => coalesce((p_options->>'grace_days')::int, 3));
+  v_next        timestamptz;
   v_apply_test  boolean := coalesce((p_options->>'apply_test')::boolean, false);
   v_products    text[] := coalesce(array(select jsonb_array_elements_text(p_options->'product_ids')), '{}');
   v_email       text;
@@ -376,10 +390,13 @@ begin
 
     elsif v_kind = 'payment' then
       v_paid_at := coalesce(public.lastlink_ts(v_data#>>'{Purchase,PaymentDate}'), v_created);
-      v_end := v_paid_at + v_access;
+      -- Usa a próxima cobrança informada pela Lastlink, se vier; senão, pagamento + 1 mês.
+      v_next := coalesce(public.lastlink_ts(v_data#>>'{Subscriptions,0,NextBilling}'), v_paid_at + v_period);
+      v_end := v_next + v_grace;
       update public.subscriptions set
         status                   = 'active',
-        current_period_end       = greatest(coalesce(current_period_end, v_end), v_end),
+        next_billing_at          = v_next,
+        current_period_end       = v_end,
         lastlink_subscription_id = coalesce(v_sub_id, lastlink_subscription_id),
         last_payment_at          = v_paid_at,
         last_payment_amount      = coalesce((v_data#>>'{Purchase,Price,Value}')::numeric, last_payment_amount),
@@ -396,8 +413,10 @@ begin
     elsif v_kind = 'access_add' then
       update public.subscriptions set
         status                   = 'active',
+        next_billing_at          = case when current_period_end is not null and current_period_end < now()
+                                        then now() + v_period else next_billing_at end,
         current_period_end       = case when current_period_end is not null and current_period_end < now()
-                                        then now() + v_access else current_period_end end,
+                                        then now() + v_period + v_grace else current_period_end end,
         lastlink_subscription_id = coalesce(v_sub_id, lastlink_subscription_id),
         status_event_at          = v_created
       where id = v_row.id;
@@ -414,7 +433,8 @@ begin
         cancel_at_period_end = true,
         canceled_at          = coalesce(public.lastlink_ts(v_data#>>'{Subscriptions,0,CanceledDate}'), v_created),
         cancellation_reason  = v_data#>>'{Subscriptions,0,CancellationReason}',
-        current_period_end   = coalesce(current_period_end, last_payment_at + v_access, now()),
+        -- Sem renovação, não há tolerância: o acesso vai até o fim do período pago.
+        current_period_end   = coalesce(next_billing_at, last_payment_at + v_period, current_period_end, now()),
         status_event_at      = v_created
       where id = v_row.id;
       v_result := 'cancel_scheduled';
@@ -440,7 +460,8 @@ begin
     'result', v_result,
     'email', v_email,
     'status', v_row.status,
-    'current_period_end', v_row.current_period_end
+    'current_period_end', v_row.current_period_end,
+    'next_billing_at', v_row.next_billing_at
   );
 end;
 $$;

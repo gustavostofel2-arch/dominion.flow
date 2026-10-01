@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     .filter(Boolean);
 
   const options = {
-    access_days: intEnv("LASTLINK_ACCESS_DAYS", 30),
+    access_months: intEnv("LASTLINK_PERIOD_MONTHS", 1),
     grace_days: intEnv("LASTLINK_GRACE_DAYS", 3),
     apply_test: process.env.LASTLINK_APPLY_TEST_EVENTS === "true",
     product_ids: productIds,
