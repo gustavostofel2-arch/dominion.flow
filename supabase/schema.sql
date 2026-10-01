@@ -291,6 +291,8 @@ declare
   v_period      interval := make_interval(months => coalesce((p_options->>'access_months')::int, 1));
   v_grace       interval := make_interval(days => coalesce((p_options->>'grace_days')::int, 0));
   v_next        timestamptz;
+  v_nb_raw      text;
+  v_base        timestamptz;
   v_apply_test  boolean := coalesce((p_options->>'apply_test')::boolean, false);
   v_products    text[] := coalesce(array(select jsonb_array_elements_text(p_options->'product_ids')), '{}');
   v_email       text;
@@ -390,9 +392,21 @@ begin
 
     elsif v_kind = 'payment' then
       v_paid_at := coalesce(public.lastlink_ts(v_data#>>'{Purchase,PaymentDate}'), v_created);
-      -- Usa a próxima cobrança informada pela Lastlink, se vier; senão, pagamento + 1 mês.
-      v_next := coalesce(public.lastlink_ts(v_data#>>'{Subscriptions,0,NextBilling}'), v_paid_at + v_period);
-      v_end := v_next + v_grace;
+      -- Próxima cobrança: a Lastlink manda em Purchase.NextBilling (ex.: "2026-11-01T00:00:00"),
+      -- o que já resolve mensal, trimestral e anual. Sem ela: pagamento + período configurado.
+      v_nb_raw := coalesce(v_data#>>'{Purchase,NextBilling}', v_data#>>'{Subscriptions,0,NextBilling}');
+      if v_nb_raw ~ '^\d{4}-\d{2}-\d{2}(T00:00:00(\.0+)?(Z|[+-]00:?00)?)?$' then
+        -- Só a data: renova naquele dia (horário de Brasília); o acesso vale até o fim do dia.
+        v_next := (left(v_nb_raw, 10)::date)::timestamp at time zone 'America/Sao_Paulo';
+        v_base := v_next + interval '1 day';
+      elsif public.lastlink_ts(v_nb_raw) is not null then
+        v_next := public.lastlink_ts(v_nb_raw);
+        v_base := v_next;
+      else
+        v_next := v_paid_at + v_period;
+        v_base := v_next;
+      end if;
+      v_end := v_base + v_grace;
       update public.subscriptions set
         status                   = 'active',
         next_billing_at          = v_next,
@@ -433,8 +447,8 @@ begin
         cancel_at_period_end = true,
         canceled_at          = coalesce(public.lastlink_ts(v_data#>>'{Subscriptions,0,CanceledDate}'), v_created),
         cancellation_reason  = v_data#>>'{Subscriptions,0,CancellationReason}',
-        -- Sem renovação, não há tolerância: o acesso vai até o fim do período pago.
-        current_period_end   = coalesce(next_billing_at, last_payment_at + v_period, current_period_end, now()),
+        -- Mantém o acesso até o fim do período já pago (calculado no pagamento).
+        current_period_end   = coalesce(current_period_end, next_billing_at, last_payment_at + v_period, now()),
         status_event_at      = v_created
       where id = v_row.id;
       v_result := 'cancel_scheduled';

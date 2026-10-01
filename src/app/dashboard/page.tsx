@@ -22,11 +22,10 @@ export default async function DashboardPage() {
   const active = isSubscriptionActive(sub);
   const fmt = (d: string | null | undefined) =>
     d ? new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
-  // Cancelada: acesso até o fim do período pago. Ativa: mostra a próxima renovação
-  // (a tolerância de alguns dias depois dela não é exibida). Manual: data de validade.
-  const until = sub?.cancel_at_period_end
-    ? fmt(sub.current_period_end)
-    : (fmt(sub?.next_billing_at) ?? fmt(sub?.current_period_end));
+  // Ativa: data da próxima renovação. Cancelada: acesso até esse mesmo dia.
+  // Manual (sem Lastlink): data de validade.
+  // (next_billing_at = dia da renovação; o acesso vale até o fim desse dia).
+  const until = fmt(sub?.next_billing_at) ?? fmt(sub?.current_period_end);
 
   return (
     <main className="mx-auto w-full max-w-xl flex-1 px-4 py-10">

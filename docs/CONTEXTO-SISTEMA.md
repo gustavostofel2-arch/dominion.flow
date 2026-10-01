@@ -240,7 +240,7 @@ quando confirmado, dá para exigir com `LASTLINK_REQUIRE_TOKEN=true`.
 **O que cada evento faz:**
 | Evento Lastlink | Efeito |
 |---|---|
-| `Purchase_Order_Confirmed` (Compra Completa), `Recurrent_Payment` (Renovação) | **active**; renova em = pagamento + 1 mês (igual ao "Renova em" da Lastlink, ou o `NextBilling` dela se vier); acesso até a data de renovação (sem dias extras; `LASTLINK_GRACE_DAYS` permite dar tolerância, padrão 0); grava valor, método, recorrência |
+| `Purchase_Order_Confirmed` (Compra Completa), `Recurrent_Payment` (Renovação) | **active**; renova em = pagamento + 1 mês (igual ao "Renova em" da Lastlink, usando `Purchase.NextBilling` que a Lastlink manda em toda compra — por isso mensal, trimestral e anual funcionam sozinhos; data sem horário = vale até o fim desse dia em Brasília); acesso até a data de renovação (sem dias extras; `LASTLINK_GRACE_DAYS` permite dar tolerância, padrão 0); grava valor, método, recorrência |
 | `Product_Access_Started`, `Subscription_Product_Access` (Add) | **active** |
 | `Subscription_Canceled` | **Continua ativo até a data de renovação (sem tolerância)** (`cancel_at_period_end = true`); grava motivo |
 | `Subscription_Expired`, `Payment_Refund`, `Payment_Chargeback`, `Product_Access_Ended`, `Subscription_Product_Access` (Remove) | **inactive** na hora |
