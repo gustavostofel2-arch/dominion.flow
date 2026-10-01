@@ -116,7 +116,12 @@ liberada a sessão inteira.
 ## 6. Site de ativação (repositório)
 
 - Pasta local: `C:\Users\Gustavo\Desktop\projetos pessoais\dominion.flow`
-- GitHub: https://github.com/gustavostofel21-art/dominion.flow (conta **gustavostofel21-art**)
+- GitHub: https://github.com/gustavostofel2-arch/dominion.flow (conta **gustavostofel2-arch**).
+  Repositório anterior (aposentado): `gustavostofel21-art/dominion.flow`.
+- Autor dos commits neste repositório: `Gustavo Stofel <gustavostofel2@gmail.com>`
+  (configurado só nesta pasta com `git config user.email`). A Vercel no plano Hobby
+  **bloqueia o deploy** se o autor do commit não for o dono do projeto — se aparecer
+  "Implantação bloqueada", confira `git config user.email` aqui.
 - Hospedagem: Vercel (deploy automático a cada push no `main`)
 - Stack: Next.js 16 (App Router, TypeScript, Tailwind — o middleware se chama `proxy.ts`), Supabase.
 
@@ -271,6 +276,7 @@ que foi alterado. Conferir essa lista antes de testar.
 | 26/09/2026 | Teste ponta a ponta aprovado (ativo libera; inativo bloqueia; token de outra sessão/reaproveitado é recusado). |
 | 26/09/2026 | Coluna `email` adicionada em `subscriptions` (com triggers). |
 | 27/09–01/10/2026 | Tool recriada no Flow; tela de ativação refeita com os mesmos parâmetros; nome "DOMINION FLOW"; ajuste de layout; linhas de conexão curvas. |
+| 01/10/2026 | Deploy bloqueado na Vercel (autor do commit era o email da Genesis). Projeto migrado para a conta GitHub `gustavostofel2-arch`, com Vercel e Supabase novos e as **mesmas chaves Ed25519** (Tool do Flow sem alteração). |
 
 ## 12. Próximos passos possíveis (não feitos)
 - Pagamento automático (Kiwify / Hotmart / Mercado Pago / Stripe) via webhook para ativar sozinho.
