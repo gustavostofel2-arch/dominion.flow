@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowRight, Brand, EyeIcon, FilmIcon, Footer, NodesIcon } from "@/components/ui";
+import { ArrowRight, Brand, CheckIcon, CopyIcon, EyeIcon, Footer, LockIcon, WindowBar } from "@/components/ui";
 
 type Mode = "login" | "signup";
 
@@ -66,9 +66,11 @@ function LoginForm() {
     setError(null);
     setInfo(null);
     const supabase = createClient();
+    // E-mail sempre em minúsculo e sem espaços: maiúsculas não atrapalham o login.
+    const cleanEmail = email.trim().toLowerCase();
 
     if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (error) {
         setError(error.message === "Invalid login credentials" ? "Email ou senha incorretos." : error.message);
         setLoading(false);
@@ -84,7 +86,7 @@ function LoginForm() {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: cleanEmail, password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -99,7 +101,7 @@ function LoginForm() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
     if (error) {
       setInfo("Acesso criado! Agora é só entrar com seu e-mail e senha.");
       setMode("login");
@@ -112,140 +114,183 @@ function LoginForm() {
 
   const isSignup = mode === "signup";
 
+  function switchMode(next: Mode) {
+    if (next === mode) return;
+    setMode(next);
+    setConfirm("");
+    setError(null);
+    setInfo(null);
+  }
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-b border-line bg-white/70 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center px-5 py-4">
-          <Brand />
-        </div>
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-6">
+        <Brand />
+        <span className="hidden rounded-full border border-line bg-white/80 px-3 py-1.5 font-mono text-[11px] text-ink-mute sm:inline-flex">
+          acesso seguro · token assinado
+        </span>
       </header>
 
-      <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-5 py-10 lg:grid-cols-[1.1fr_0.9fr] lg:py-16">
-        {/* Apresentação (só em telas largas) */}
-        <section className="hidden lg:block">
-          <p className="eyebrow">Seu próximo projeto começa aqui</p>
-          <h1 className="mt-6 text-[64px] font-semibold leading-[0.98] tracking-[-0.04em]">
-            Menos etapas.
-            <br />
-            <span className="relative inline-block">
-              <span className="relative z-10">Mais criação.</span>
-              <span className="absolute inset-x-0 bottom-1 z-0 h-5 bg-brand/85" aria-hidden="true" />
+      <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-5 py-10 lg:grid-cols-2 lg:gap-16 lg:py-14">
+        {/* Manifesto + demonstração do fluxo (no celular fica abaixo do formulário) */}
+        <section className="order-2 lg:order-1">
+          <p className="eyebrow">Área de membros</p>
+          <h1 className="mt-5 text-[52px] font-semibold leading-[0.92] tracking-[-0.05em] sm:text-[76px]">
+            <span className="flex items-baseline gap-4">
+              Abra.
+              <span className="font-mono text-xs font-medium tracking-normal text-ink-mute">01</span>
+            </span>
+            <span className="flex items-baseline gap-4">
+              Ative.
+              <span className="font-mono text-xs font-medium tracking-normal text-ink-mute">02</span>
+            </span>
+            <span className="flex items-baseline gap-4">
+              <span className="glitch">Crie.</span>
+              <span className="font-mono text-xs font-medium tracking-normal text-brand">03</span>
             </span>
           </h1>
-          <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft">
-            Entre na sua área de membros, ative suas ferramentas e transforme ideias em imagens e vídeos.
+          <p className="mt-6 max-w-md text-[17px] leading-relaxed text-ink-soft">
+            Suas ferramentas de IA em um lugar só. Um código, um token e você está criando.
           </p>
 
-          <div className="mt-10 grid max-w-md gap-3">
-            <div className="flex items-center gap-4 rounded-2xl border border-line bg-white/80 p-4">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-soft text-cyan-ink">
-                <NodesIcon size={22} />
-              </span>
-              <span>
-                <span className="block text-sm font-semibold">Dominion Flow</span>
-                <span className="block text-sm text-ink-soft">Workflows em nodes, no estilo Freepik.</span>
-              </span>
+          <div className="mt-10 hidden max-w-md lg:block" aria-hidden="true">
+            <div className="card overflow-hidden">
+              <WindowBar title="flow.google.com · Dominion Creator" />
+              <div className="flex items-center justify-between gap-4 px-5 py-4">
+                <span>
+                  <span className="block font-mono text-[10px] uppercase tracking-[0.2em] text-ink-mute">
+                    Código da sessão
+                  </span>
+                  <span className="mt-1 block font-mono text-lg font-semibold tracking-[0.12em] text-cyan-ink">
+                    K7QD-29XM-PL4A-8VNE
+                  </span>
+                </span>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-line text-ink-soft">
+                  <CopyIcon size={18} />
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-4 rounded-2xl border border-line bg-white/80 p-4">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                <FilmIcon size={22} />
-              </span>
-              <span>
-                <span className="block text-sm font-semibold">Dominion Creator</span>
-                <span className="block text-sm text-ink-soft">Da foto do produto aos vídeos prontos.</span>
-              </span>
+
+            <div className="flex items-center gap-3 py-2 pl-8">
+              <span className="dash-v h-10 w-0.5" />
+              <span className="font-mono text-[11px] text-ink-mute">cole aqui no site → gere o token</span>
+            </div>
+
+            <div className="card ml-10 overflow-hidden">
+              <WindowBar
+                title="dominion · ativação"
+                right={
+                  <span className="rounded-full bg-cyan-soft px-2 py-0.5 font-mono text-[10px] text-cyan-ink">
+                    liberado
+                  </span>
+                }
+              />
+              <div className="flex items-center gap-3 px-5 py-4">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white">
+                  <CheckIcon size={18} />
+                </span>
+                <span className="caret truncate font-mono text-xs text-ink-soft">v1.eyJ2ZXJzaW9uIjoxLCJ0b29sSWQi</span>
+              </div>
             </div>
           </div>
         </section>
 
         {/* Formulário */}
-        <section className="card mx-auto w-full max-w-md p-7 sm:p-10">
-          <p className="eyebrow">Bem-vindo à Dominion</p>
-          <h2 className="mt-4 text-[32px] font-semibold leading-tight tracking-[-0.03em] sm:text-4xl">
-            {isSignup ? "Crie seu acesso" : "Entre no seu espaço"}
-          </h2>
-          <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
-            {isSignup
-              ? "Use o mesmo e-mail informado na compra e escolha uma senha."
-              : "Use o e-mail da sua compra para continuar."}
-          </p>
+        <section className="card order-1 mx-auto w-full max-w-md overflow-hidden lg:order-2 lg:mx-0 lg:ml-auto">
+          <WindowBar title={isSignup ? "dominion · criar acesso" : "dominion · entrar"} />
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-5">
-            <label className="block">
-              <span className="text-sm font-medium">E-mail da compra</span>
-              <input
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="voce@exemplo.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="field mt-2"
-              />
-            </label>
+          <div className="p-7 sm:p-9">
+            <div className="grid grid-cols-2 rounded-2xl border border-line bg-field p-1" role="tablist">
+              {(["login", "signup"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => switchMode(m)}
+                  className={`h-11 rounded-xl text-sm font-semibold transition ${
+                    mode === m
+                      ? "bg-white text-ink shadow-[0_1px_3px_rgba(24,24,27,0.12)]"
+                      : "text-ink-mute hover:text-ink"
+                  }`}
+                >
+                  {m === "login" ? "Entrar" : "Primeiro acesso"}
+                </button>
+              ))}
+            </div>
 
-            <label className="block">
-              <span className="text-sm font-medium">Senha</span>
-              <PasswordInput
-                key={mode}
-                value={password}
-                onChange={setPassword}
-                minLength={isSignup ? 8 : 6}
-                autoComplete={isSignup ? "new-password" : "current-password"}
-                placeholder={isSignup ? "Pelo menos 8 caracteres" : "Sua senha"}
-              />
-            </label>
+            <h2 className="mt-8 text-[30px] font-semibold leading-tight tracking-[-0.03em]">
+              {isSignup ? "Crie seu acesso" : "Bem-vindo de volta"}
+            </h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
+              {isSignup
+                ? "Use o mesmo e-mail informado na compra e escolha uma senha."
+                : "Entre com o e-mail da sua compra."}
+            </p>
 
-            {isSignup && (
+            <form onSubmit={onSubmit} className="mt-7 space-y-5">
               <label className="block">
-                <span className="text-sm font-medium">Confirme a senha</span>
-                <PasswordInput
-                  value={confirm}
-                  onChange={setConfirm}
-                  minLength={8}
-                  autoComplete="new-password"
-                  placeholder="Digite a senha de novo"
-                  invalid={confirm.length > 0 && confirm !== password}
+                <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-mute">E-mail da compra</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder="voce@exemplo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="field mt-2"
                 />
-                {confirm.length > 0 && confirm !== password && (
-                  <span className="mt-2 block text-xs text-red-600">As senhas não conferem.</span>
-                )}
               </label>
-            )}
 
-            {error && (
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
-            )}
-            {info && (
-              <p className="rounded-xl border border-cyan/40 bg-cyan-soft px-4 py-3 text-sm text-cyan-ink">{info}</p>
-            )}
+              <label className="block">
+                <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-mute">Senha</span>
+                <PasswordInput
+                  key={mode}
+                  value={password}
+                  onChange={setPassword}
+                  minLength={isSignup ? 8 : 6}
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  placeholder={isSignup ? "Pelo menos 8 caracteres" : "Sua senha"}
+                />
+              </label>
 
-            <button type="submit" disabled={loading} className="btn-primary">
-              <span>{loading ? "Aguarde..." : isSignup ? "Criar meu acesso" : "Entrar na minha conta"}</span>
-              <ArrowRight size={20} />
-            </button>
-          </form>
+              {isSignup && (
+                <label className="block">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-mute">
+                    Confirme a senha
+                  </span>
+                  <PasswordInput
+                    value={confirm}
+                    onChange={setConfirm}
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Digite a senha de novo"
+                    invalid={confirm.length > 0 && confirm !== password}
+                  />
+                  {confirm.length > 0 && confirm !== password && (
+                    <span className="mt-2 block text-xs text-red-600">As senhas não conferem.</span>
+                  )}
+                </label>
+              )}
 
-          <p className="mt-6 text-center text-sm text-ink-soft">
-            {isSignup ? "Já tem acesso? " : "Primeiro acesso? "}
-            <button
-              type="button"
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-                setConfirm("");
-                setError(null);
-                setInfo(null);
-              }}
-              className="font-semibold text-brand hover:underline"
-            >
-              {isSignup ? "Entrar" : "Criar meu acesso"}
-            </button>
-          </p>
+              {error && (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+              )}
+              {info && (
+                <p className="rounded-xl border border-cyan/40 bg-cyan-soft px-4 py-3 text-sm text-cyan-ink">{info}</p>
+              )}
 
-          <p className="mt-8 border-t border-line pt-6 text-[13px] leading-relaxed text-ink-mute">
-            O acesso é liberado após a confirmação da compra. No primeiro acesso, crie sua conta com o mesmo
-            e-mail do pagamento.
-          </p>
+              <button type="submit" disabled={loading} className="btn-primary">
+                <span>{loading ? "Aguarde..." : isSignup ? "Criar meu acesso" : "Entrar"}</span>
+                <ArrowRight size={20} />
+              </button>
+            </form>
+
+            <p className="mt-7 flex gap-3 rounded-2xl bg-field px-4 py-3.5 text-[13px] leading-relaxed text-ink-soft">
+              <LockIcon size={16} className="mt-0.5 shrink-0 text-ink-mute" />
+              O acesso é liberado após a confirmação da compra. No primeiro acesso, use o mesmo e-mail do pagamento.
+            </p>
+          </div>
         </section>
       </main>
 

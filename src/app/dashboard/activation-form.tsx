@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, ArrowUpRight, CheckIcon, CopyIcon, KeyIcon, LockIcon } from "@/components/ui";
+import { ArrowRight, ArrowUpRight, CheckIcon, CopyIcon, KeyIcon, LockIcon, WindowBar } from "@/components/ui";
 
 const CHALLENGE_REGEX = /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$/;
 
@@ -82,8 +82,9 @@ export default function ActivationForm({
 
   if (inactive) {
     return (
-      <section className="card relative overflow-hidden p-7 sm:p-9">
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-brand" aria-hidden="true" />
+      <section className="card overflow-hidden">
+        <WindowBar title="dominion · ativação" right={<span className="rounded-full bg-brand-soft px-2 py-0.5 font-mono text-[10px] text-brand">bloqueada</span>} />
+        <div className="p-7 sm:p-9">
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand">
           <LockIcon size={26} />
         </span>
@@ -103,13 +104,15 @@ export default function ActivationForm({
         ) : (
           <p className="mt-8 rounded-2xl bg-field px-5 py-4 text-sm text-ink-soft">Fale com o suporte para assinar.</p>
         )}
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="card relative overflow-hidden p-7 sm:p-9">
-      <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-cyan via-cyan to-brand" aria-hidden="true" />
+    <section className="card overflow-hidden">
+      <WindowBar title="dominion · ativação" right={<span className="rounded-full bg-cyan-soft px-2 py-0.5 font-mono text-[10px] text-cyan-ink">pronta</span>} />
+      <div className="p-7 sm:p-9">
       <div className="flex items-center gap-4">
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ink text-cyan">
           <KeyIcon size={26} />
@@ -180,6 +183,7 @@ export default function ActivationForm({
           </button>
         </div>
       )}
+      </div>
     </section>
   );
 }

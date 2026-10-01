@@ -114,3 +114,18 @@ export function Footer() {
     </footer>
   );
 }
+
+/** Barra de "janela de app" para cartões: três pontos + endereço em mono. */
+export function WindowBar({ title, right }: { title: string; right?: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+      <span className="flex items-center gap-1.5" aria-hidden="true">
+        <span className="h-2.5 w-2.5 rounded-full bg-brand" />
+        <span className="h-2.5 w-2.5 rounded-full bg-cyan" />
+        <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
+      </span>
+      <span className="truncate font-mono text-[11px] text-ink-mute">{title}</span>
+      <span className="min-w-[30px] text-right">{right}</span>
+    </div>
+  );
+}
