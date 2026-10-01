@@ -1,0 +1,42 @@
+# Mantém o projeto do Supabase (plano gratuito) acordado.
+# O Supabase pausa projetos gratuitos após ~7 dias sem atividade; isto faz uma
+# consulta leve a cada 3 dias. Pode ser removido quando o Supabase for o plano Pro.
+#
+# Requer 2 secrets no repositório (Settings → Secrets and variables → Actions):
+#   SUPABASE_URL       → mesmo valor de NEXT_PUBLIC_SUPABASE_URL
+#   SUPABASE_ANON_KEY  → mesmo valor de NEXT_PUBLIC_SUPABASE_ANON_KEY
+#
+# Se a consulta falhar, o job fica vermelho e o GitHub manda email avisando.
+
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "17 12 */3 * *" # a cada 3 dias, 12:17 UTC (09:17 em Brasília)
+  workflow_dispatch: # permite rodar na mão pela aba Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consultar o banco
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Cadastre os secrets SUPABASE_URL e SUPABASE_ANON_KEY no repositório."
+            exit 1
+          fi
+          # Consulta real ao Postgres (via API REST). Com a chave anon e RLS ativo,
+          # a resposta é uma lista vazia — nenhum dado é exposto.
+          status=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/subscriptions?select=user_id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "HTTP $status"
+          if [ "$status" != "200" ]; then
+            echo "::error::Supabase respondeu HTTP $status. O projeto pode estar pausado: entre no painel e clique em Restore."
+            exit 1
+          fi

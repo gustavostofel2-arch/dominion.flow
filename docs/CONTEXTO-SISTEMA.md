@@ -166,6 +166,18 @@ Authentication → URL Configuration:
 - Site URL: a URL da Vercel
 - Redirect URLs: `https://<sua-url>.vercel.app/auth/callback` e `http://localhost:3000/auth/callback`
 
+### Quem faz o quê
+- **Vercel** gera e assina o token (rota `/api/generate-token`, Node.js). A chave privada só existe lá.
+- **Supabase** só guarda login, assinaturas e logs. Não usa Edge Functions e não conhece a chave privada.
+
+### Keep-alive do Supabase (plano gratuito)
+`.github/workflows/supabase-keepalive.yml` consulta o banco a cada 3 dias para o
+Supabase gratuito não pausar o projeto. Precisa dos secrets `SUPABASE_URL` e
+`SUPABASE_ANON_KEY` no GitHub (Settings → Secrets and variables → Actions).
+Se falhar, o GitHub manda email. Pode ser apagado quando o Supabase for Pro.
+Atenção: o GitHub desativa agendamentos em repositórios sem nenhum commit por 60 dias
+(ele avisa por email; é só reativar na aba Actions).
+
 ## 7. Banco de dados (Supabase)
 
 ### `public.subscriptions` — uma linha por usuário
