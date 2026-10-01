@@ -2,6 +2,7 @@ export type Subscription = {
   status: "active" | "inactive";
   plan: string | null;
   current_period_end: string | null;
+  cancel_at_period_end?: boolean | null;
 };
 
 export function isSubscriptionActive(sub: Subscription | null): boolean {

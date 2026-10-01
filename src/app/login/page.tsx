@@ -10,7 +10,7 @@ type Mode = "login" | "signup";
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(params.get("modo") === "criar" ? "signup" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,31 +38,45 @@ function LoginForm() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
+    // Criar acesso: o servidor só cria a conta se o e-mail tiver assinatura ativa.
+    try {
+      const res = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.erro ?? "Não foi possível criar o acesso.");
+        if (res.status === 409) setMode("login");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError("Falha de conexão. Tente novamente.");
+      setLoading(false);
       return;
     }
-    if (data.session) {
-      router.replace("/dashboard");
-      router.refresh();
-    } else {
-      setInfo("Conta criada! Confira seu email para confirmar o cadastro e depois faça login.");
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setInfo("Acesso criado! Agora é só entrar com seu e-mail e senha.");
       setMode("login");
+      setLoading(false);
+      return;
     }
+    router.replace("/dashboard");
+    router.refresh();
   }
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold tracking-tight">FlowSpace</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Dominion Flow</h1>
         <p className="mt-1 text-sm opacity-70">
-          {mode === "login" ? "Entre para gerar sua ativação." : "Crie sua conta."}
+          {mode === "login"
+            ? "Entre para gerar sua ativação."
+            : "Use o mesmo e-mail da sua compra e escolha uma senha."}
         </p>
 
         <form
@@ -85,7 +99,7 @@ function LoginForm() {
             <input
               type="password"
               required
-              minLength={6}
+              minLength={mode === "signup" ? 8 : 6}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -101,7 +115,7 @@ function LoginForm() {
             disabled={loading}
             className="w-full rounded-lg bg-violet-600 px-4 py-2 font-medium text-white transition hover:bg-violet-700 disabled:opacity-60"
           >
-            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+            {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar acesso"}
           </button>
         </form>
 
@@ -114,7 +128,7 @@ function LoginForm() {
           }}
           className="mt-4 w-full text-center text-sm opacity-70 hover:opacity-100"
         >
-          {mode === "login" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
+          {mode === "login" ? "Primeiro acesso? Criar acesso" : "Já tem acesso? Entrar"}
         </button>
       </div>
     </main>

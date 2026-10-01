@@ -92,7 +92,7 @@ listar, detectar quem gera tokens demais).
   (`process.env`, arquivos com `import "server-only"`).
 - Token vale 10 min (`FLOW_TOKEN_TTL_SECONDS`) e só para o código de sessão
   exibido naquele momento.
-- Limite de 15 tokens por usuário a cada 10 min; tudo registrado em `activation_logs`.
+- Limite de 20 tokens por usuário por hora; tudo registrado em `activation_logs`.
 
 ## Documentação
 Contexto completo (chaves, tokens, banco, Tool do Flow e diagnóstico de erros): [docs/CONTEXTO-SISTEMA.md](docs/CONTEXTO-SISTEMA.md)

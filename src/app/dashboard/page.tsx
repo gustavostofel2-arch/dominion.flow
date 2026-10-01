@@ -15,7 +15,7 @@ export default async function DashboardPage() {
 
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("status, plan, current_period_end")
+    .select("status, plan, current_period_end, cancel_at_period_end")
     .eq("user_id", user.id)
     .maybeSingle<Subscription>();
 
@@ -26,7 +26,7 @@ export default async function DashboardPage() {
     <main className="mx-auto w-full max-w-xl flex-1 px-4 py-10">
       <header className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">FlowSpace</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Dominion Flow</h1>
           <p className="truncate text-sm opacity-70">{user.email}</p>
         </div>
         <SignOutButton />
@@ -43,13 +43,17 @@ export default async function DashboardPage() {
           {active ? "Assinatura ativa" : "Assinatura inativa"}
         </span>
         {active && sub?.plan && <span className="opacity-70">Plano: {sub.plan}</span>}
-        {active && until && <span className="opacity-70">· válida até {until}</span>}
+        {active && until && (
+          <span className="opacity-70">
+            · {sub?.cancel_at_period_end ? "renovação cancelada, acesso até" : "acesso até"} {until}
+          </span>
+        )}
       </div>
 
-      <ActivationForm initiallyActive={active} />
+      <ActivationForm initiallyActive={active} checkoutUrl={process.env.NEXT_PUBLIC_CHECKOUT_URL ?? null} />
 
       <ol className="mt-8 list-decimal space-y-1 pl-5 text-sm opacity-70">
-        <li>Abra a Tool FlowSpace no Google Flow e copie o código de sessão.</li>
+        <li>Abra a ferramenta Dominion Flow no Google Flow e copie o código de sessão.</li>
         <li>Cole aqui e clique em &quot;Gerar ativação&quot;.</li>
         <li>Copie o token e cole de volta na Tool. Ele vale por poucos minutos e só para aquela sessão.</li>
       </ol>

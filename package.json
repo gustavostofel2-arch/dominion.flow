@@ -9,7 +9,8 @@
     "lint": "eslint",
     "keys": "node scripts/generate-keys.mjs",
     "token:sign": "node scripts/sign-test-token.mjs",
-    "token:verify": "node scripts/verify-token.mjs"
+    "token:verify": "node scripts/verify-token.mjs",
+    "lastlink:secret": "node scripts/lastlink-secret.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

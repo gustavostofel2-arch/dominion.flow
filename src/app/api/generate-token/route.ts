@@ -9,8 +9,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Limite anti-abuso: máximo de tokens por usuário numa janela de tempo.
-const RATE_LIMIT_MAX = 15;
-const RATE_LIMIT_WINDOW_MINUTES = 10;
+const RATE_LIMIT_MAX = 20;
+const RATE_LIMIT_WINDOW_MINUTES = 60;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   if ((count ?? 0) >= RATE_LIMIT_MAX) {
     return NextResponse.json(
-      { erro: "Muitas ativações em pouco tempo. Aguarde alguns minutos." },
+      { erro: "Limite de ativações por hora atingido. Tente novamente mais tarde." },
       { status: 429 },
     );
   }

@@ -146,7 +146,7 @@ liberada a sessão inteira.
 | 1 | Usuário logado | 401 → volta ao login |
 | 2 | Assinatura ativa e dentro da validade | 403 → tela "Assinatura inativa" |
 | 3 | Código no formato `XXXX-XXXX-XXXX-XXXX` | 400 → "Código de sessão inválido" |
-| 4 | Menos de 15 tokens nos últimos 10 min | 429 → "Muitas ativações em pouco tempo" |
+| 4 | Menos de 20 tokens na última hora | 429 → "Muitas ativações em pouco tempo" |
 | 5 | Assina com a chave privada | 500 → "Erro interno ao gerar token" (chave errada/ausente na Vercel) |
 | 6 | Grava em `activation_logs` e devolve o token | — |
 
@@ -221,6 +221,62 @@ select u.email, count(*) as tokens, count(distinct l.ip) as ips
 Se o `update` responder **0 rows**: o email está errado ou a coluna/linha não existe
 — rode o `supabase/schema.sql` inteiro de novo (não apaga nada).
 
+## 7.1 Lastlink (vendas e assinaturas) — adicionado em 01/10/2026
+
+A Lastlink avisa cada venda/renovação/cancelamento por **webhook** e o sistema
+atualiza `subscriptions` sozinho. O cliente só consegue **criar acesso** no site
+se o e-mail dele tiver assinatura ativa.
+
+**Onde roda:** na Vercel, rota `POST /api/webhooks/lastlink?key=<LASTLINK_WEBHOOK_SECRET>`.
+Toda a regra fica na função SQL `public.process_lastlink_event` (uma transação só:
+grava o aviso, ignora duplicado, atualiza a assinatura). Não usa Supabase Edge Functions.
+
+**Validação do aviso:** a documentação da Lastlink não diz onde ela manda o token da
+integração. Por isso a URL leva um segredo nosso (`?key=`), comparado em tempo
+constante; sem ele → 401. O sistema também registra, em `webhook_events.meta`,
+quais cabeçalhos chegaram e se o token da Lastlink (`LASTLINK_TOKEN`) apareceu —
+quando confirmado, dá para exigir com `LASTLINK_REQUIRE_TOKEN=true`.
+
+**O que cada evento faz:**
+| Evento Lastlink | Efeito |
+|---|---|
+| `Purchase_Order_Confirmed` (Compra Completa), `Recurrent_Payment` (Renovação) | **active**; acesso até data do pagamento + 30 dias + 3 de tolerância; grava valor, método, recorrência |
+| `Product_Access_Started`, `Subscription_Product_Access` (Add) | **active** |
+| `Subscription_Canceled` | **Continua ativo até o fim do período pago** (`cancel_at_period_end = true`); grava motivo |
+| `Subscription_Expired`, `Payment_Refund`, `Payment_Chargeback`, `Product_Access_Ended`, `Subscription_Product_Access` (Remove) | **inactive** na hora |
+| `Subscription_Renewal_Pending` | Marca `renewal_pending`; não derruba (a tolerância cobre) |
+| `Purchase_Request_*`, `Refund_Requested`, `Refund_Period_Over`, `Active_Member_Notification` | Só atualiza dados de contato |
+| `Abandoned_Cart` e desconhecidos | Só registra o aviso |
+
+**Proteções:** aviso repetido (mesmo `Id`) é ignorado; aviso mais antigo que o último
+aplicado é ignorado (`stale_ignored`); reembolso/cancelamento de uma assinatura
+**antiga** não derruba a nova (`other_subscription_ignored`); eventos de teste
+(`IsTest`) não mexem em clientes reais; produtos fora de `LASTLINK_PRODUCT_IDS`
+são ignorados. Se a gravação falhar, responde 500 e nada fica pela metade.
+
+**Tudo que chega fica guardado** em `public.webhook_events` (aviso completo + o que
+o sistema fez). Consulta pronta no fim do `schema.sql`.
+
+**Cadastro:** cadastro público do Supabase **desligado**. A rota `POST /api/signup`
+só cria a conta (já confirmada, sem e-mail) se o e-mail tiver assinatura ativa.
+Quem fica inativo continua conseguindo entrar, mas não gera token.
+Senha esquecida: redefinir pelo SQL do fim do `schema.sql` (até configurar o Resend).
+
+**Variáveis novas na Vercel:** `LASTLINK_WEBHOOK_SECRET` (obrigatória; gerada com
+`npm run lastlink:secret`, fica em `keys/lastlink-webhook.txt`), `LASTLINK_TOKEN`,
+`LASTLINK_REQUIRE_TOKEN`, `LASTLINK_PRODUCT_IDS`, `LASTLINK_ACCESS_DAYS` (30),
+`LASTLINK_GRACE_DAYS` (3), `LASTLINK_APPLY_TEST_EVENTS` (false), `NEXT_PUBLIC_CHECKOUT_URL`.
+
+**Diagnóstico:**
+| Sintoma | Onde olhar |
+|---|---|
+| Cliente pagou e não consegue criar acesso | `webhook_events` do e-mail dele: chegou? qual `result`? E-mail da compra é o mesmo digitado? |
+| Nenhum aviso chega | URL na Lastlink (com `?key=`), integração ligada, eventos marcados; logs da Vercel (`[lastlink]`) |
+| Lastlink mostra erro 401 | `?key=` da URL diferente de `LASTLINK_WEBHOOK_SECRET` na Vercel |
+| Lastlink mostra erro 500 | Logs da Vercel; `schema.sql` aplicado? `SUPABASE_SERVICE_ROLE_KEY` certa? |
+| `result = test_ignored` | Era evento de teste (botão "Testar") — normal |
+| `result = ignored_other_product` | Produto não está em `LASTLINK_PRODUCT_IDS` |
+
 ## 8. A Tool no Google Flow
 
 A Tool foi **recriada do zero** depois que a versão anterior começou a dar erros.
@@ -262,7 +318,7 @@ que foi alterado. Conferir essa lista antes de testar.
 | Mensagem | Causa | Correção |
 |---|---|---|
 | Assinatura inativa | `status` ≠ `active` ou vencida | Ativar no SQL Editor (seção 7) |
-| Muitas ativações em pouco tempo | Mais de 15 tokens em 10 min | Esperar até 10 min |
+| Limite de ativações por hora atingido | Mais de 20 tokens em 1 hora | Esperar |
 | Erro interno ao gerar token | `FLOW_PRIVATE_KEY_PEM` ausente/errada na Vercel | Colar de novo a chave (seção 4.2, passos 2–3, sem gerar par novo) e Redeploy. Logs: Vercel → Deployments → Functions/Logs |
 | Erro ao verificar assinatura | Supabase fora do ar ou variáveis do Supabase erradas | Conferir as 3 variáveis do Supabase na Vercel |
 | Link de confirmação inválido ou expirado | Redirect URL não cadastrada no Supabase | Seção 6, "Supabase — configuração de login" |
@@ -272,7 +328,7 @@ que foi alterado. Conferir essa lista antes de testar.
 
 1. **Assinante gerando token para outra pessoa:** se um cliente ativo receber o código
    de sessão de outra pessoa, ele consegue gerar um token válido para ela. A Tool não
-   identifica quem está usando. Mitigação: token de 10 min, limite de 15/10 min e a
+   identifica quem está usando. Mitigação: token de 10 min, limite de 20 tokens/hora e a
    consulta de compartilhamento (seção 7).
 2. **Desativar não derruba uma sessão já liberada:** quem já ativou continua até
    fechar a Tool. Depois disso, não consegue gerar token novo.
@@ -289,6 +345,7 @@ que foi alterado. Conferir essa lista antes de testar.
 | 26/09/2026 | Coluna `email` adicionada em `subscriptions` (com triggers). |
 | 27/09–01/10/2026 | Tool recriada no Flow; tela de ativação refeita com os mesmos parâmetros; nome "DOMINION FLOW"; ajuste de layout; linhas de conexão curvas. |
 | 01/10/2026 | Deploy bloqueado na Vercel (autor do commit era o email da Genesis). Projeto migrado para a conta GitHub `gustavostofel2-arch`, com Vercel e Supabase novos e as **mesmas chaves Ed25519** (Tool do Flow sem alteração). |
+| 01/10/2026 | Integração Lastlink: webhook, tabela `webhook_events`, `subscriptions` passa a ser por e-mail (com nome, telefone, documento, pagamento), cadastro restrito a compradores, limite de 20 tokens/hora. |
 
 ## 12. Próximos passos possíveis (não feitos)
 - Pagamento automático (Kiwify / Hotmart / Mercado Pago / Stripe) via webhook para ativar sozinho.

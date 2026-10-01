@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 
 const CHALLENGE_REGEX = /^[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$/;
 
-export default function ActivationForm({ initiallyActive }: { initiallyActive: boolean }) {
+export default function ActivationForm({
+  initiallyActive,
+  checkoutUrl,
+}: {
+  initiallyActive: boolean;
+  checkoutUrl: string | null;
+}) {
   const router = useRouter();
   const [challenge, setChallenge] = useState("");
   const [token, setToken] = useState<string | null>(null);
@@ -78,15 +84,19 @@ export default function ActivationForm({ initiallyActive }: { initiallyActive: b
       <section className="mt-6 rounded-2xl border border-amber-300/60 bg-amber-50 p-6 dark:border-amber-400/30 dark:bg-amber-400/10">
         <h2 className="font-semibold">Assinatura inativa</h2>
         <p className="mt-1 text-sm opacity-80">
-          Você precisa de uma assinatura ativa para gerar tokens de ativação.
+          Você precisa de uma assinatura ativa para gerar tokens de ativação. Se acabou de pagar,
+          aguarde 1 minuto e atualize a página.
         </p>
-        <button
-          type="button"
-          onClick={() => alert("Checkout em breve. Fale com o suporte para assinar.")}
-          className="mt-4 rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
-        >
-          Assinar agora
-        </button>
+        {checkoutUrl ? (
+          <a
+            href={checkoutUrl}
+            className="mt-4 inline-block rounded-lg bg-violet-600 px-4 py-2 font-medium text-white hover:bg-violet-700"
+          >
+            Assinar agora
+          </a>
+        ) : (
+          <p className="mt-4 text-sm opacity-80">Fale com o suporte para assinar.</p>
+        )}
       </section>
     );
   }
