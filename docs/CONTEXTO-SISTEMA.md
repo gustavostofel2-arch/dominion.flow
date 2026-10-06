@@ -256,6 +256,8 @@ aplicado é ignorado (`stale_ignored`); reembolso/cancelamento de uma assinatura
 (`IsTest`) não mexem em clientes reais; produtos fora de `LASTLINK_PRODUCT_IDS`
 são ignorados. Se a gravação falhar, responde 500 e nada fica pela metade.
 
+**Regra de acesso (desde 06/10/2026):** assinaturas da Lastlink **não têm data de corte**. Ficam ativas até a Lastlink avisar reembolso, chargeback, expiração ou fim de liberação de acesso. Cancelar só marca `cancel_at_period_end`; o corte vem com o aviso de expiração. `current_period_end` só vale para liberações manuais (cortesia). O painel mostra só Status e Plano (o período: Mensal, Trimestral, Semestral ou Anual).
+
 **Tudo que chega fica guardado** em `public.webhook_events` (aviso completo + o que
 o sistema fez). Consulta pronta no fim do `schema.sql`.
 
@@ -349,6 +351,7 @@ que foi alterado. Conferir essa lista antes de testar.
 | 01/10/2026 | Deploy bloqueado na Vercel (autor do commit era o email da Genesis). Projeto migrado para a conta GitHub `gustavostofel2-arch`, com Vercel e Supabase novos e as **mesmas chaves Ed25519** (Tool do Flow sem alteração). |
 | 01/10/2026 | Integração Lastlink: webhook, tabela `webhook_events`, `subscriptions` passa a ser por e-mail (com nome, telefone, documento, pagamento), cadastro restrito a compradores, limite de 20 tokens/hora. |
 | 05/10/2026 | Domínio próprio `dominion-flow.app`; Lastlink migrada para a conta definitiva do sócio; segredo do webhook trocado; testes no domínio novo aprovados. |
+| 06/10/2026 | Recuperação de senha por e-mail (Resend, modelo pt-BR com link no próprio domínio); tema escuro em todo o site; período do plano (Mensal/Trimestral/Semestral/Anual) calculado pela data da próxima cobrança; **acesso segue só o status da Lastlink — sem data de corte** (ativo até reembolso, chargeback, expiração ou fim de liberação de acesso). |
 
 ## 12. Próximos passos possíveis (não feitos)
 - Pagamento automático (Kiwify / Hotmart / Mercado Pago / Stripe) via webhook para ativar sozinho.
