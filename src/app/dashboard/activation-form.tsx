@@ -82,7 +82,7 @@ export default function ActivationForm({
 
   if (inactive) {
     return (
-      <section className="card overflow-hidden">
+      <section className="card card-strong overflow-hidden">
         <WindowBar title="dominion · ativação" right={<span className="rounded-full bg-brand-soft px-2 py-0.5 font-mono text-[10px] text-brand">bloqueada</span>} />
         <div className="p-7 sm:p-9">
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-brand">
@@ -110,7 +110,7 @@ export default function ActivationForm({
   }
 
   return (
-    <section className="card overflow-hidden">
+    <section className="card card-strong overflow-hidden">
       <WindowBar title="dominion · ativação" right={<span className="rounded-full bg-cyan-soft px-2 py-0.5 font-mono text-[10px] text-cyan-ink">pronta</span>} />
       <div className="p-7 sm:p-9">
       <div className="flex items-center gap-4">
@@ -170,7 +170,7 @@ export default function ActivationForm({
             value={token}
             rows={4}
             onFocus={(e) => e.currentTarget.select()}
-            className="mt-4 w-full resize-none rounded-2xl border border-line bg-white p-4 font-mono text-xs leading-relaxed break-all text-ink-soft outline-none focus:border-brand"
+            className="dk-token-box mt-4 w-full resize-none rounded-2xl border border-line bg-white p-4 font-mono text-xs leading-relaxed break-all text-ink-soft outline-none focus:border-brand"
           />
           <button
             type="button"

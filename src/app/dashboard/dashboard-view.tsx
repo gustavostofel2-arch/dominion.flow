@@ -80,7 +80,7 @@ function ToolCard({ tool, index }: { tool: Tool; index: number }) {
     <article className="card flex flex-col overflow-hidden">
       <WindowBar title={`flow.google.com · ${tool.name}`} right={<span className="font-mono text-[11px] text-ink-mute">0{index + 1}</span>} />
       <div
-        className="h-40 border-b border-line bg-field"
+        className="dk-art h-40 border-b border-line bg-field"
         style={{
           backgroundImage:
             "radial-gradient(circle, rgba(24,24,27,0.10) 1px, transparent 1px)",
@@ -120,8 +120,16 @@ function ToolCard({ tool, index }: { tool: Tool; index: number }) {
 
 export default function DashboardView({ email, hello, active, until, renewLabel, plan, checkoutUrl }: DashboardViewProps) {
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="sticky top-0 z-20 border-b border-line bg-white/75 backdrop-blur">
+    <div className="theme-dark flex min-h-full flex-1 flex-col">
+      {/* Atmosfera (decorativa): grade, orbes de luz, feixe e granulado */}
+      <div className="dk-bg" aria-hidden="true">
+        <div className="dk-grid" />
+        <div className="dk-orb dk-orb-blue" />
+        <div className="dk-orb dk-orb-cyan" />
+        <div className="dk-beam" />
+        <div className="dk-noise" />
+      </div>
+      <header className="dk-header sticky top-0 z-20">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4">
           <Brand />
           <div className="flex items-center gap-3">
