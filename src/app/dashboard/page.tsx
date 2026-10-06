@@ -36,11 +36,9 @@ export default async function DashboardPage() {
     : sub?.next_billing_at
       ? "Renova em"
       : "Acesso até";
-  // Plano exibido: nome da oferta + período (ex.: "Dominion · Anual"). O período só aparece
-  // em assinaturas com renovação (contas liberadas à mão, como sócios, mostram só o rótulo).
-  const offer = sub?.plan?.trim() || null;
-  const period = sub?.next_billing_at ? sub?.billing_period : null;
-  const planLabel = offer && period ? `${offer} · ${period}` : (period ?? offer);
+  // Plano exibido: só o período da compra (Mensal, Trimestral, Semestral, Anual).
+  // Contas liberadas à mão (dono, sócios) não têm período e mostram o próprio rótulo.
+  const planLabel = sub?.billing_period?.trim() || sub?.plan?.trim() || null;
 
   return (
     <DashboardView
