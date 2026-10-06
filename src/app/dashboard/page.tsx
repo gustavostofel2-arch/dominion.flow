@@ -19,23 +19,12 @@ export default async function DashboardPage() {
 
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("status, plan, current_period_end, cancel_at_period_end, next_billing_at, name, billing_period")
+    .select("status, plan, current_period_end, name, billing_period")
     .eq("user_id", user.id)
     .maybeSingle<Subscription & { name: string | null; billing_period: string | null }>();
 
   const active = isSubscriptionActive(sub);
-  const fmt = (d: string | null | undefined) =>
-    d ? new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : null;
-  // Ativa: data da próxima renovação. Cancelada: acesso até esse mesmo dia.
-  // Manual (sem Lastlink): data de validade.
-  // (next_billing_at = dia da renovação; o acesso vale até o fim desse dia).
-  const until = fmt(sub?.next_billing_at) ?? fmt(sub?.current_period_end);
   const hello = firstName(sub?.name, user.email);
-  const renewLabel = sub?.cancel_at_period_end
-    ? "Renovação cancelada · acesso até"
-    : sub?.next_billing_at
-      ? "Renova em"
-      : "Acesso até";
   // Plano exibido: só o período da compra (Mensal, Trimestral, Semestral, Anual).
   // Contas liberadas à mão (dono, sócios) não têm período e mostram o próprio rótulo.
   const planLabel = sub?.billing_period?.trim() || sub?.plan?.trim() || null;
@@ -45,8 +34,6 @@ export default async function DashboardPage() {
       email={user.email}
       hello={hello}
       active={active}
-      until={until}
-      renewLabel={renewLabel}
       plan={planLabel}
       checkoutUrl={process.env.NEXT_PUBLIC_CHECKOUT_URL ?? null}
     />

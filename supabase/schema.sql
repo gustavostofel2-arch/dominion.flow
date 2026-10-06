@@ -95,7 +95,7 @@ alter table public.subscriptions add column if not exists cancellation_reason   
 alter table public.subscriptions add column if not exists refunded_at              timestamptz;
 alter table public.subscriptions add column if not exists chargeback_at            timestamptz;
 alter table public.subscriptions add column if not exists renewal_pending          boolean not null default false;
--- Próxima cobrança (igual ao "Renova em" da Lastlink). O acesso vai até ela + tolerância.
+-- Próxima cobrança informada pela Lastlink (só informativo; não corta o acesso).
 alter table public.subscriptions add column if not exists next_billing_at          timestamptz;
 alter table public.subscriptions add column if not exists last_event               text;
 alter table public.subscriptions add column if not exists last_event_at            timestamptz;
@@ -116,14 +116,12 @@ update public.subscriptions set email = lower(trim(email)) where email <> lower(
 delete from public.subscriptions where email is null or email = '';
 alter table public.subscriptions alter column email set not null;
 
--- Assinaturas da Lastlink criadas antes da coluna next_billing_at: recalcula
--- (renovação = último pagamento + 1 mês; o acesso vai até a renovação).
+-- Assinaturas da Lastlink NÃO têm data de corte: o acesso segue o status informado pela
+-- Lastlink (fica ativo até reembolso, chargeback, expiração ou fim de liberação de acesso).
+-- current_period_end só vale para liberações manuais (ex.: cortesia de 30 dias).
 update public.subscriptions
-   set current_period_end = last_payment_at + interval '1 month'
- where next_billing_at is null and source = 'lastlink' and last_payment_at is not null;
-update public.subscriptions
-   set next_billing_at = last_payment_at + interval '1 month'
- where next_billing_at is null and source = 'lastlink' and last_payment_at is not null;
+   set current_period_end = null
+ where source = 'lastlink' and current_period_end is not null;
 
 create unique index if not exists subscriptions_email_key   on public.subscriptions (email);
 create unique index if not exists subscriptions_user_id_key on public.subscriptions (user_id);
@@ -334,7 +332,6 @@ declare
   v_action      text;
   v_kind        text;
   v_paid_at     timestamptz;
-  v_end         timestamptz;
   v_row         public.subscriptions%rowtype;
   v_result      text;
 begin
@@ -439,11 +436,12 @@ begin
         v_next := v_paid_at + v_period;
         v_base := v_next;
       end if;
-      v_end := v_base + v_grace;
+      -- Sem data de corte: fica ativo até a Lastlink avisar o fim (reembolso, expiração etc.).
+      -- next_billing_at é guardado só como informação e para calcular o período do plano.
       update public.subscriptions set
         status                   = 'active',
         next_billing_at          = v_next,
-        current_period_end       = v_end,
+        current_period_end       = null,
         lastlink_subscription_id = coalesce(v_sub_id, lastlink_subscription_id),
         last_payment_at          = v_paid_at,
         last_payment_amount      = coalesce((v_data#>>'{Purchase,Price,Value}')::numeric, last_payment_amount),
@@ -462,10 +460,7 @@ begin
     elsif v_kind = 'access_add' then
       update public.subscriptions set
         status                   = 'active',
-        next_billing_at          = case when current_period_end is not null and current_period_end < now()
-                                        then now() + v_period else next_billing_at end,
-        current_period_end       = case when current_period_end is not null and current_period_end < now()
-                                        then now() + v_period + v_grace else current_period_end end,
+        current_period_end       = null,
         lastlink_subscription_id = coalesce(v_sub_id, lastlink_subscription_id),
         status_event_at          = v_created
       where id = v_row.id;
@@ -477,13 +472,12 @@ begin
       v_result := 'other_subscription_ignored';
 
     elsif v_kind = 'cancel' then
-      -- Cancelou a renovação: mantém o acesso até o fim do período já pago.
+      -- Cancelou a renovação: continua ativo; o acesso termina quando a Lastlink avisar
+      -- "Assinatura expirada" / "Fim liberação de acesso" ao fim do período já pago.
       update public.subscriptions set
         cancel_at_period_end = true,
         canceled_at          = coalesce(public.lastlink_ts(v_data#>>'{Subscriptions,0,CanceledDate}'), v_created),
         cancellation_reason  = v_data#>>'{Subscriptions,0,CancellationReason}',
-        -- Mantém o acesso até o fim do período já pago (calculado no pagamento).
-        current_period_end   = coalesce(current_period_end, next_billing_at, last_payment_at + v_period, now()),
         status_event_at      = v_created
       where id = v_row.id;
       v_result := 'cancel_scheduled';

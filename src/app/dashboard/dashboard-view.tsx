@@ -14,8 +14,6 @@ export type DashboardViewProps = {
   email: string | undefined;
   hello: string;
   active: boolean;
-  until: string | null;
-  renewLabel: string;
   plan: string | null | undefined;
   checkoutUrl: string | null;
 };
@@ -118,7 +116,7 @@ function ToolCard({ tool, index }: { tool: Tool; index: number }) {
   );
 }
 
-export default function DashboardView({ email, hello, active, until, renewLabel, plan, checkoutUrl }: DashboardViewProps) {
+export default function DashboardView({ email, hello, active, plan, checkoutUrl }: DashboardViewProps) {
   return (
     <div className="theme-dark flex min-h-full flex-1 flex-col">
       {/* Atmosfera (decorativa): grade, orbes de luz, feixe e granulado */}
@@ -165,12 +163,6 @@ export default function DashboardView({ email, hello, active, until, renewLabel,
                   {active ? "Ativa" : "Inativa"}
                 </dd>
               </div>
-              {active && until && (
-                <div className="flex items-center justify-between px-5 py-3.5">
-                  <dt className="text-ink-mute">{renewLabel}</dt>
-                  <dd className="font-mono font-semibold">{until}</dd>
-                </div>
-              )}
               {active && plan && (
                 <div className="flex items-center justify-between gap-4 px-5 py-3.5">
                   <dt className="text-ink-mute">Plano</dt>
