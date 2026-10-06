@@ -123,6 +123,8 @@ liberada a sessão inteira.
   **bloqueia o deploy** se o autor do commit não for o dono do projeto — se aparecer
   "Implantação bloqueada", confira `git config user.email` aqui.
 - Hospedagem: Vercel (deploy automático a cada push no `main`)
+- **Domínio:** https://dominion-flow.app (comprado na Vercel em 05/10/2026, renovação US$ 15/ano). `www` redireciona para ele. O antigo `dominion-flow-kohl.vercel.app` continua funcionando.
+- Webhook na Lastlink **definitiva (conta do sócio)**: `https://dominion-flow.app/api/webhooks/lastlink?key=…` (segredo trocado em 05/10/2026; valor em `keys/lastlink-webhook.txt`). Link de criar acesso na área de membros: `https://dominion-flow.app/login?modo=criar`.
 - Stack: Next.js 16 (App Router, TypeScript, Tailwind — o middleware se chama `proxy.ts`), Supabase.
 
 | Arquivo | O que faz |
@@ -346,6 +348,7 @@ que foi alterado. Conferir essa lista antes de testar.
 | 27/09–01/10/2026 | Tool recriada no Flow; tela de ativação refeita com os mesmos parâmetros; nome "DOMINION FLOW"; ajuste de layout; linhas de conexão curvas. |
 | 01/10/2026 | Deploy bloqueado na Vercel (autor do commit era o email da Genesis). Projeto migrado para a conta GitHub `gustavostofel2-arch`, com Vercel e Supabase novos e as **mesmas chaves Ed25519** (Tool do Flow sem alteração). |
 | 01/10/2026 | Integração Lastlink: webhook, tabela `webhook_events`, `subscriptions` passa a ser por e-mail (com nome, telefone, documento, pagamento), cadastro restrito a compradores, limite de 20 tokens/hora. |
+| 05/10/2026 | Domínio próprio `dominion-flow.app`; Lastlink migrada para a conta definitiva do sócio; segredo do webhook trocado; testes no domínio novo aprovados. |
 
 ## 12. Próximos passos possíveis (não feitos)
 - Pagamento automático (Kiwify / Hotmart / Mercado Pago / Stripe) via webhook para ativar sozinho.
