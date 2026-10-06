@@ -4,44 +4,11 @@ import { useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowRight, Brand, CheckIcon, CopyIcon, EyeIcon, Footer, LockIcon, WindowBar } from "@/components/ui";
+import Link from "next/link";
+import PasswordInput from "@/components/password-input";
+import { ArrowRight, Brand, CheckIcon, CopyIcon, Footer, LockIcon, WindowBar } from "@/components/ui";
 
 type Mode = "login" | "signup";
-
-function PasswordInput(props: {
-  value: string;
-  onChange: (v: string) => void;
-  autoComplete: string;
-  minLength: number;
-  placeholder?: string;
-  invalid?: boolean;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <div className="relative mt-2">
-      <input
-        type={visible ? "text" : "password"}
-        required
-        minLength={props.minLength}
-        autoComplete={props.autoComplete}
-        placeholder={props.placeholder}
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        aria-invalid={props.invalid || undefined}
-        className={`field pr-14 ${props.invalid ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : ""}`}
-      />
-      <button
-        type="button"
-        onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Esconder senha" : "Mostrar senha"}
-        title={visible ? "Esconder senha" : "Mostrar senha"}
-        className="absolute inset-y-0 right-0 flex w-14 items-center justify-center text-ink-mute transition hover:text-ink"
-      >
-        <EyeIcon open={visible} size={20} />
-      </button>
-    </div>
-  );
-}
 
 function LoginForm() {
   const router = useRouter();
@@ -252,6 +219,11 @@ function LoginForm() {
                   autoComplete={isSignup ? "new-password" : "current-password"}
                   placeholder={isSignup ? "Pelo menos 8 caracteres" : "Sua senha"}
                 />
+                {!isSignup && (
+                  <Link href="/esqueci-senha" className="mt-2 inline-block text-sm font-medium text-brand hover:underline">
+                    Esqueci minha senha
+                  </Link>
+                )}
               </label>
 
               {isSignup && (
