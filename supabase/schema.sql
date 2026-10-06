@@ -101,6 +101,11 @@ alter table public.subscriptions add column if not exists last_event            
 alter table public.subscriptions add column if not exists last_event_at            timestamptz;
 -- Data do último evento que mudou o status (para ignorar avisos fora de ordem).
 alter table public.subscriptions add column if not exists status_event_at          timestamptz;
+-- Período da assinatura (Mensal, Trimestral, Semestral, Anual): calculado pela distância
+-- entre o pagamento e a próxima cobrança, porque a Lastlink usa uma oferta só para todos
+-- os períodos e não manda o período escrito. Guarda também o "Cycle" que ela envia.
+alter table public.subscriptions add column if not exists billing_period           text;
+alter table public.subscriptions add column if not exists billing_cycle            integer;
 
 -- Email sempre minúsculo e preenchido (completa a partir do login, se faltar).
 update public.subscriptions s
@@ -271,6 +276,34 @@ exception when others then
 end;
 $$;
 
+-- Nome do período pela distância entre pagamento e próxima cobrança
+-- (~30 dias = Mensal, ~91 = Trimestral, ~182 = Semestral, ~365 = Anual).
+create or replace function public.lastlink_period_label(p_paid timestamptz, p_next timestamptz)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when p_paid is null or p_next is null or p_next <= p_paid then null
+    else case round(extract(epoch from (p_next - p_paid)) / 86400.0 / 30.4375)::int
+      when 0 then null
+      when 1 then 'Mensal'
+      when 2 then 'Bimestral'
+      when 3 then 'Trimestral'
+      when 6 then 'Semestral'
+      when 12 then 'Anual'
+      else round(extract(epoch from (p_next - p_paid)) / 86400.0 / 30.4375)::int::text || ' meses'
+    end
+  end
+$$;
+
+-- Assinaturas que já existiam: preenche o período.
+update public.subscriptions
+   set billing_period = public.lastlink_period_label(last_payment_at, next_billing_at)
+ where billing_period is null and source = 'lastlink'
+   and last_payment_at is not null and next_billing_at is not null;
+
 create or replace function public.process_lastlink_event(p_payload jsonb, p_options jsonb default '{}'::jsonb)
 returns jsonb
 language plpgsql
@@ -416,6 +449,8 @@ begin
         last_payment_amount      = coalesce((v_data#>>'{Purchase,Price,Value}')::numeric, last_payment_amount),
         payment_method           = coalesce(v_data#>>'{Purchase,Payment,PaymentMethod}', payment_method),
         recurrency               = coalesce((v_data#>>'{Purchase,Recurrency}')::int, recurrency),
+        billing_period           = coalesce(public.lastlink_period_label(v_paid_at, v_next), billing_period),
+        billing_cycle            = coalesce((v_data#>>'{Subscriptions,0,Cycle}')::int, billing_cycle),
         cancel_at_period_end     = false,
         canceled_at              = null,
         cancellation_reason      = null,

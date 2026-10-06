@@ -19,9 +19,9 @@ export default async function DashboardPage() {
 
   const { data: sub } = await supabase
     .from("subscriptions")
-    .select("status, plan, current_period_end, cancel_at_period_end, next_billing_at, name")
+    .select("status, plan, current_period_end, cancel_at_period_end, next_billing_at, name, billing_period")
     .eq("user_id", user.id)
-    .maybeSingle<Subscription & { name: string | null }>();
+    .maybeSingle<Subscription & { name: string | null; billing_period: string | null }>();
 
   const active = isSubscriptionActive(sub);
   const fmt = (d: string | null | undefined) =>
@@ -36,6 +36,11 @@ export default async function DashboardPage() {
     : sub?.next_billing_at
       ? "Renova em"
       : "Acesso até";
+  // Plano exibido: nome da oferta + período (ex.: "Dominion · Anual"). O período só aparece
+  // em assinaturas com renovação (contas liberadas à mão, como sócios, mostram só o rótulo).
+  const offer = sub?.plan?.trim() || null;
+  const period = sub?.next_billing_at ? sub?.billing_period : null;
+  const planLabel = offer && period ? `${offer} · ${period}` : (period ?? offer);
 
   return (
     <DashboardView
@@ -44,7 +49,7 @@ export default async function DashboardPage() {
       active={active}
       until={until}
       renewLabel={renewLabel}
-      plan={sub?.plan}
+      plan={planLabel}
       checkoutUrl={process.env.NEXT_PUBLIC_CHECKOUT_URL ?? null}
     />
   );
