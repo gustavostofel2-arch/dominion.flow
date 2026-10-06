@@ -81,11 +81,11 @@ export const EyeIcon = ({ open, ...p }: IconProps & { open: boolean }) => (
 export function BrandMark({ size = 40 }: { size?: number }) {
   return (
     <span
-      className="relative inline-flex shrink-0 items-center justify-center rounded-xl bg-ink font-mono font-bold text-white"
+      className="brand-mark relative inline-flex shrink-0 items-center justify-center rounded-xl bg-ink font-mono font-bold text-white"
       style={{ width: size, height: size, fontSize: size * 0.5 }}
       aria-hidden="true"
     >
-      <span className="absolute translate-x-[-1.5px] translate-y-[-1px] text-cyan">D</span>
+      <span className="brand-mark-cyan absolute translate-x-[-1.5px] translate-y-[-1px] text-cyan">D</span>
       <span className="absolute translate-x-[1.5px] translate-y-[1px] text-brand">D</span>
       <span className="relative">D</span>
     </span>
@@ -98,7 +98,7 @@ export function Brand({ subtitle = "Área de membros" }: { subtitle?: string }) 
       <BrandMark />
       <span className="flex flex-col leading-tight">
         <span className="text-[17px] font-semibold tracking-tight">Dominion</span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-ink-mute">{subtitle}</span>
+        <span className="brand-sub font-mono text-[10px] uppercase tracking-[0.24em] text-ink-mute">{subtitle}</span>
       </span>
     </span>
   );
@@ -106,10 +106,10 @@ export function Brand({ subtitle = "Área de membros" }: { subtitle?: string }) 
 
 export function Footer() {
   return (
-    <footer className="mt-auto border-t border-line bg-white/60 backdrop-blur">
+    <footer className="site-footer mt-auto border-t border-line bg-white/60 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-5 py-6 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <span className="font-semibold tracking-tight">Dominion</span>
-        <span className="text-ink-mute">Ferramentas de IA para criar mais, em menos etapas.</span>
+        <span className="site-footer-name font-semibold tracking-tight">Dominion</span>
+        <span className="site-footer-text text-ink-mute">Ferramentas de IA para criar mais, em menos etapas.</span>
       </div>
     </footer>
   );
@@ -118,13 +118,13 @@ export function Footer() {
 /** Barra de "janela de app" para cartões: três pontos + endereço em mono. */
 export function WindowBar({ title, right }: { title: string; right?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+    <div className="winbar flex items-center justify-between gap-3 border-b border-line px-5 py-3">
       <span className="flex items-center gap-1.5" aria-hidden="true">
         <span className="h-2.5 w-2.5 rounded-full bg-brand" />
-        <span className="h-2.5 w-2.5 rounded-full bg-cyan" />
-        <span className="h-2.5 w-2.5 rounded-full bg-line-strong" />
+        <span className="winbar-dot-cyan h-2.5 w-2.5 rounded-full bg-cyan" />
+        <span className="winbar-dot-gray h-2.5 w-2.5 rounded-full bg-line-strong" />
       </span>
-      <span className="truncate font-mono text-[11px] text-ink-mute">{title}</span>
+      <span className="winbar-title truncate font-mono text-[11px] text-ink-mute">{title}</span>
       <span className="min-w-[30px] text-right">{right}</span>
     </div>
   );
