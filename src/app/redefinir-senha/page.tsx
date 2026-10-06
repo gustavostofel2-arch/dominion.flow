@@ -18,11 +18,20 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Só chega aqui com sessão criada pelo link do e-mail (/auth/confirm).
+  // Chega aqui com sessão criada pelo link do e-mail (/auth/confirm). Se vier no formato
+  // padrão do Supabase (?code=...), troca o código pela sessão aqui mesmo — isso só
+  // funciona no mesmo navegador em que o link foi pedido.
   useEffect(() => {
-    createClient()
-      .auth.getUser()
-      .then(({ data }) => setState(data.user ? "ready" : "no-session"));
+    const supabase = createClient();
+    const code = new URLSearchParams(window.location.search).get("code");
+    const exchange = code ? supabase.auth.exchangeCodeForSession(code) : Promise.resolve(null);
+    exchange
+      .catch(() => null)
+      .then(() => supabase.auth.getUser())
+      .then(({ data }) => {
+        if (code) window.history.replaceState(null, "", "/redefinir-senha");
+        setState(data.user ? "ready" : "no-session");
+      });
   }, []);
 
   async function onSubmit(e: FormEvent) {
