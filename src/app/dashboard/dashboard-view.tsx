@@ -141,7 +141,7 @@ export default function DashboardView({ email, hello, active, until, renewLabel,
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 pb-16 pt-10 sm:pt-14">
         {/* Boas-vindas + status */}
-        <section className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-end">
+        <section className="grid gap-6 md:grid-cols-2 md:items-end">
           <div>
             <p className="eyebrow">Painel do membro</p>
             <h1 className="mt-4 text-[46px] font-semibold leading-[0.95] tracking-[-0.05em] sm:text-[68px]">
@@ -182,7 +182,7 @@ export default function DashboardView({ email, hello, active, until, renewLabel,
         </section>
 
         {/* Ativação + passo a passo */}
-        <section id="ativacao" className="mt-10 grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+        <section id="ativacao" className="mt-10 grid gap-6 md:grid-cols-2">
           <ActivationForm initiallyActive={active} checkoutUrl={checkoutUrl} />
 
           <div className="card p-7 sm:p-9">
