@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { TOOLS, type Tool } from "@/lib/tools";
 import { ArrowUpRight, Brand, Footer, WindowBar } from "@/components/ui";
 import ActivationForm from "./activation-form";
@@ -18,6 +19,8 @@ export type DashboardViewProps = {
   /** Data da próxima cobrança (dd/mm/aaaa) ou "Cancelada". Vazio para contas sem renovação. */
   renewal: string | null;
   checkoutUrl: string | null;
+  /** Só true para os e-mails do painel admin (decidido no servidor). */
+  showAdmin?: boolean;
 };
 
 /** Ilustração do Dominion Flow: três nodes ligados por curvas. */
@@ -118,7 +121,7 @@ function ToolCard({ tool, index }: { tool: Tool; index: number }) {
   );
 }
 
-export default function DashboardView({ email, hello, active, plan, renewal, checkoutUrl }: DashboardViewProps) {
+export default function DashboardView({ email, hello, active, plan, renewal, checkoutUrl, showAdmin }: DashboardViewProps) {
   return (
     <div className="theme-dark flex min-h-full flex-1 flex-col">
       {/* Atmosfera (decorativa): grade, orbes de luz, feixe e granulado */}
@@ -134,6 +137,12 @@ export default function DashboardView({ email, hello, active, plan, renewal, che
           <Brand />
           <div className="flex items-center gap-3">
             <span className="hidden max-w-[220px] truncate text-sm text-ink-mute sm:block">{email}</span>
+            {showAdmin && (
+              <Link href="/admin" className="btn-ghost">
+                <span className="sm:hidden">Admin</span>
+                <span className="hidden sm:inline">Painel admin</span>
+              </Link>
+            )}
             <SignOutButton />
           </div>
         </div>

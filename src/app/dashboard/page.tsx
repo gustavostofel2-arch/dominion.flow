@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isSubscriptionActive, type Subscription } from "@/lib/subscription";
+import { isAdminEmail } from "@/lib/admin";
 import DashboardView from "./dashboard-view";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ export default async function DashboardPage() {
       plan={planLabel}
       renewal={renewal}
       checkoutUrl={process.env.NEXT_PUBLIC_CHECKOUT_URL ?? null}
+      showAdmin={isAdminEmail(user.email)}
     />
   );
 }
