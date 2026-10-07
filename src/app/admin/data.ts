@@ -351,7 +351,10 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
   // Avisos da Lastlink: vendas, renovações, reembolsos, carrinhos.
   const realEvents = events.filter((e) => !e.is_test);
   const ev = (e: EventRow) => e.event.toLowerCase();
-  const counted = realEvents.filter((e) => !NOT_COUNTED.has(e.result));
+  // Compras e reembolsos de contas liberadas à mão (dono, sócios, cortesias) são testes
+  // internos: aparecem na lista de avisos, mas não entram em vendas, faturamento e reembolsos.
+  const internal = new Set(subs.filter((s) => s.source !== "lastlink").map((s) => s.email.toLowerCase()));
+  const counted = realEvents.filter((e) => !NOT_COUNTED.has(e.result) && !(e.email && internal.has(e.email.toLowerCase())));
   const within = (e: EventRow, days: number) => now - new Date(e.received_at).getTime() <= days * DAY;
 
   const sales = counted.filter((e) => ev(e) === "purchase_order_confirmed");

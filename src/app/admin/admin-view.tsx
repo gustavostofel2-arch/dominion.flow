@@ -51,7 +51,7 @@ const RESULT: Record<string, { label: string; tone: "ok" | "bad" | "warn" | "mut
   contact_updated: { label: "Dados atualizados", tone: "mute" },
   logged: { label: "Só registrado", tone: "mute" },
   test_ignored: { label: "Teste (ignorado)", tone: "mute" },
-  stale_ignored: { label: "Fora de ordem (ignorado)", tone: "mute" },
+  stale_ignored: { label: "Já aplicado (ok)", tone: "mute" },
   other_subscription_ignored: { label: "Outra assinatura (ignorado)", tone: "mute" },
   ignored_other_product: { label: "Outro produto (ignorado)", tone: "mute" },
   no_email: { label: "Sem e-mail", tone: "warn" },
