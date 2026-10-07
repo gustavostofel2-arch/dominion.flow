@@ -440,20 +440,21 @@ begin
         v_next := v_paid_at + v_period;
         v_base := v_next;
       end if;
-      -- Vitalício: oferta declarada como vitalícia, ou compra de pagamento único
-      -- (o aviso vem sem próxima cobrança e sem assinatura).
+      -- Vitalício: oferta declarada em LASTLINK_LIFETIME_OFFER_IDS (o jeito confiável: o aviso
+      -- real de "Cobrança única" vem COM bloco de assinatura e sem próxima cobrança), ou aviso
+      -- sem próxima cobrança e sem assinatura.
       v_lifetime := coalesce((v_data#>>'{Offer,Id}') = any (v_lifetime_offers), false)
                     or (v_nb_raw is null and v_sub_id is null);
 
       if v_lifetime then
         -- Nunca vence. Só reembolso, chargeback ou remoção de acesso cortam.
-        -- lastlink_subscription_id = 'vitalicio' faz avisos de assinaturas antigas da
-        -- mesma pessoa (cancelamento/expiração) serem ignorados.
+        -- Guarda o Id real da compra: o reembolso DELA corta; avisos de assinaturas
+        -- antigas da mesma pessoa (outro Id) são ignorados.
         update public.subscriptions set
           status                   = 'active',
           next_billing_at          = null,
           current_period_end       = null,
-          lastlink_subscription_id = 'vitalicio',
+          lastlink_subscription_id = coalesce(v_sub_id, 'vitalicio'),
           last_payment_at          = v_paid_at,
           last_payment_amount      = coalesce((v_data#>>'{Purchase,Price,Value}')::numeric, last_payment_amount),
           payment_method           = coalesce(v_data#>>'{Purchase,Payment,PaymentMethod}', payment_method),
@@ -506,6 +507,12 @@ begin
         status_event_at          = v_created
       where id = v_row.id;
       v_result := 'activated';
+
+    -- Vitalício não expira nem "cancela renovação": esses avisos são ignorados.
+    -- (Reembolso, chargeback e remoção de acesso continuam cortando.)
+    elsif v_row.status = 'active' and v_row.billing_period = 'Vitalício'
+          and (v_kind = 'cancel' or v_ev = 'subscription_expired') then
+      v_result := 'lifetime_kept';
 
     -- Evento de outra assinatura (ex.: a pessoa comprou de novo): não derruba a atual.
     elsif v_sub_id is not null and v_row.lastlink_subscription_id is not null
