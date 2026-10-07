@@ -65,11 +65,17 @@ export async function POST(request: NextRequest) {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  const lifetimeOfferIds = (process.env.LASTLINK_LIFETIME_OFFER_IDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   const options = {
     access_months: intEnv("LASTLINK_PERIOD_MONTHS", 1),
     grace_days: intEnv("LASTLINK_GRACE_DAYS", 5),
     apply_test: process.env.LASTLINK_APPLY_TEST_EVENTS === "true",
     product_ids: productIds,
+    lifetime_offer_ids: lifetimeOfferIds,
     meta: { header_names: headerNames, lastlink_token_matched: tokenMatched },
   };
 

@@ -4,7 +4,8 @@
 //
 //   npm run lastlink:sim -- <url-do-site> <evento> <email> [subscriptionId]
 //
-// Eventos: compra | renovacao | pendente | cancelamento | expirou | reembolso | chargeback | semkey
+// Eventos: compra | renovacao | pendente | cancelamento | expirou | reembolso | chargeback | vitalicio | semkey
+// (vitalicio = compra de pagamento único: sem próxima cobrança e sem assinatura)
 // Exemplo: npm run lastlink:sim -- https://dominion-flow.vercel.app compra teste1@exemplo.com
 
 import crypto from "node:crypto";
@@ -22,6 +23,7 @@ const EVENTS = {
   reembolso: "Payment_Refund",
   chargeback: "Payment_Chargeback",
   semkey: "Purchase_Order_Confirmed",
+  vitalicio: "Purchase_Order_Confirmed",
 };
 
 if (!site || !EVENTS[kind] || !email) {
@@ -75,6 +77,11 @@ const payload = {
     Offer: { Id: "sim-oferta", Name: "Dominion Flow Mensal (simulação)", Url: "https://lastlink.com/p/SIM" },
   },
 };
+
+if (kind === "vitalicio" || (kind === "reembolso" && process.argv.includes("--vitalicio"))) {
+  delete payload.Data.Subscriptions;
+  payload.Data.Offer = { Id: "sim-oferta-vitalicia", Name: "Dominion Flow [VITALICIO] (simulação)" };
+}
 
 const url = `${site.replace(/\/+$/, "")}/api/webhooks/lastlink` + (kind === "semkey" ? "?key=errada" : `?key=${secret}`);
 const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });

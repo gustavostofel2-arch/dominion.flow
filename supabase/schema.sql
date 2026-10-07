@@ -326,6 +326,9 @@ declare
   v_nb_raw      text;
   v_base        timestamptz;
   v_apply_test  boolean := coalesce((p_options->>'apply_test')::boolean, false);
+  -- Ofertas vitalícias declaradas (LASTLINK_LIFETIME_OFFER_IDS). Segurança extra além do formato.
+  v_lifetime_offers text[] := coalesce(array(select jsonb_array_elements_text(p_options->'lifetime_offer_ids')), '{}');
+  v_lifetime    boolean := false;
   v_products    text[] := coalesce(array(select jsonb_array_elements_text(p_options->'product_ids')), '{}');
   v_email       text;
   v_sub_id      text;
@@ -437,6 +440,40 @@ begin
         v_next := v_paid_at + v_period;
         v_base := v_next;
       end if;
+      -- Vitalício: oferta declarada como vitalícia, ou compra de pagamento único
+      -- (o aviso vem sem próxima cobrança e sem assinatura).
+      v_lifetime := coalesce((v_data#>>'{Offer,Id}') = any (v_lifetime_offers), false)
+                    or (v_nb_raw is null and v_sub_id is null);
+
+      if v_lifetime then
+        -- Nunca vence. Só reembolso, chargeback ou remoção de acesso cortam.
+        -- lastlink_subscription_id = 'vitalicio' faz avisos de assinaturas antigas da
+        -- mesma pessoa (cancelamento/expiração) serem ignorados.
+        update public.subscriptions set
+          status                   = 'active',
+          next_billing_at          = null,
+          current_period_end       = null,
+          lastlink_subscription_id = 'vitalicio',
+          last_payment_at          = v_paid_at,
+          last_payment_amount      = coalesce((v_data#>>'{Purchase,Price,Value}')::numeric, last_payment_amount),
+          payment_method           = coalesce(v_data#>>'{Purchase,Payment,PaymentMethod}', payment_method),
+          recurrency               = null,
+          billing_period           = 'Vitalício',
+          billing_cycle            = null,
+          cancel_at_period_end     = false,
+          canceled_at              = null,
+          cancellation_reason      = null,
+          renewal_pending          = false,
+          status_event_at          = v_created
+        where id = v_row.id;
+        v_result := 'activated_lifetime';
+
+      -- Quem já é vitalício e ativo não é rebaixado por uma compra/renovação de assinatura.
+      elsif v_row.status = 'active' and v_row.billing_period = 'Vitalício' then
+        update public.subscriptions set status_event_at = v_created where id = v_row.id;
+        v_result := 'lifetime_kept';
+
+      else
       -- Acesso até o fim do dia da renovação + 5 dias, igual à "Liberação de acesso" da Lastlink.
       -- Renovou: estende. Reembolso, chargeback, expiração e fim de liberação cortam antes.
       update public.subscriptions set
@@ -457,6 +494,7 @@ begin
         status_event_at          = v_created
       where id = v_row.id;
       v_result := 'activated';
+      end if;
 
     elsif v_kind = 'access_add' then
       -- Não mexe na data já calculada pelo pagamento (esse aviso costuma chegar junto da compra).

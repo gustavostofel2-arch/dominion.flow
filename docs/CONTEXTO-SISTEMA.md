@@ -256,7 +256,9 @@ aplicado é ignorado (`stale_ignored`); reembolso/cancelamento de uma assinatura
 (`IsTest`) não mexem em clientes reais; produtos fora de `LASTLINK_PRODUCT_IDS`
 são ignorados. Se a gravação falhar, responde 500 e nada fica pela metade.
 
-**Regra de acesso (desde 06/10/2026), igual à "Liberação de acesso" da Lastlink:** acesso até o **fim do dia da renovação + 5 dias** (Brasília). Ex.: compra mensal em 06/10 → renova 06/11 → acesso até 11/11; anual → até 11/10 do ano seguinte (confirmado com compras reais). Reembolso, chargeback, expiração e fim de liberação cortam na hora; renovação estende; cancelamento mantém até o fim da liberação já paga. `LASTLINK_GRACE_DAYS` (padrão 5). O painel mostra só Status e Plano (o período: Mensal, Trimestral, Semestral ou Anual).
+**Regra de acesso (desde 06/10/2026), igual à "Liberação de acesso" da Lastlink:** acesso até o **fim do dia da renovação + 5 dias** (Brasília). Ex.: compra mensal em 06/10 → renova 06/11 → acesso até 11/11; anual → até 11/10 do ano seguinte (confirmado com compras reais). Reembolso, chargeback, expiração e fim de liberação cortam na hora; renovação estende; cancelamento mantém até o fim da liberação já paga. `LASTLINK_GRACE_DAYS` (padrão 5).
+
+**Oferta vitalícia (pagamento único):** compra que chega **sem próxima cobrança e sem assinatura** (ou cuja oferta está em `LASTLINK_LIFETIME_OFFER_IDS`) vira **Vitalício**: nunca vence, plano "Vitalício", sem renovação. Só reembolso, chargeback ou remoção de acesso cortam. Avisos de assinaturas antigas da mesma pessoa são ignorados, e uma renovação de assinatura não rebaixa o vitalício. O painel mostra só Status e Plano (o período: Mensal, Trimestral, Semestral ou Anual).
 
 **Tudo que chega fica guardado** em `public.webhook_events` (aviso completo + o que
 o sistema fez). Consulta pronta no fim do `schema.sql`.
