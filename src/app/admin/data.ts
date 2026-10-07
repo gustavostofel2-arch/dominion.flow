@@ -37,7 +37,11 @@ type EventRow = {
   result: string;
   is_test: boolean;
   received_at: string;
+  /** Purchase.Price: o que o cliente pagou, COM juros do parcelamento. */
   amount: string | null;
+  /** Purchase.OriginalPrice: preço da oferta (sem juros). É o valor da venda. */
+  original: string | null;
+  payment_id: string | null;
   buyer_name: string | null;
   buyer_phone: string | null;
   offer: string | null;
@@ -85,6 +89,12 @@ function toNumber(v: number | string | null | undefined) {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Valor da venda: preço da oferta (OriginalPrice). Os juros do parcelamento no cartão
+ *  ficam fora (vão para a operadora, não são faturamento). Sem ele, usa o valor pago. */
+function valueOf(e: { original: string | null; amount: string | null }) {
+  return toNumber(e.original) ?? toNumber(e.amount);
+}
+
 /** Telefone só com dígitos, com DDI 55 quando vier sem (para o link do WhatsApp). */
 export function whatsappNumber(phone: string | null | undefined) {
   const digits = (phone ?? "").replace(/\D/g, "");
@@ -98,12 +108,13 @@ export function whatsappNumber(phone: string | null | undefined) {
 export type PlanCategory = "Mensal" | "Anual" | "Vitalício" | "Outros períodos" | "Liberado à mão";
 
 function planCategory(s: SubRow): PlanCategory {
+  // Acesso liberado à mão (dono, sócios, cortesias) nunca conta como plano vendido,
+  // mesmo que tenha período (ex.: cortesia anual).
+  if (s.source !== "lastlink") return "Liberado à mão";
   const p = (s.billing_period ?? "").trim();
   if (p === "Vitalício") return "Vitalício";
   if (p === "Mensal") return "Mensal";
   if (p === "Anual") return "Anual";
-  if (p) return "Outros períodos";
-  if (s.source === "manual") return "Liberado à mão";
   return "Outros períodos";
 }
 
@@ -150,6 +161,7 @@ export type ClientRow = {
   source: string;
   hasAccount: boolean;
   accountCreated: string | null;
+  accountAgeDays: number;
   lastLogin: string | null;
   lastLoginRel: string | null;
   lastUse: string | null;
@@ -212,7 +224,7 @@ export type AdminData = {
   idle: AttentionItem[];
   topUsers: { email: string; name: string | null; uses7: number; ips7: number; last: string | null; suspicious: boolean }[];
   abandoned: { email: string; name: string | null; whatsapp: string | null; offer: string | null; when: string | null }[];
-  events: { id: string; event: string; email: string | null; result: string; isTest: boolean; when: string | null; amount: number | null }[];
+  events: { id: string; event: string; email: string | null; result: string; isTest: boolean; when: string | null; amount: number | null; paid: number | null }[];
   clients: ClientRow[];
 };
 
@@ -251,7 +263,7 @@ export async function loadAdminData(): Promise<AdminData> {
       admin
         .from("webhook_events")
         .select(
-          "id, event, email, result, is_test, received_at, amount:payload->Data->Purchase->Price->>Value, buyer_name:payload->Data->Buyer->>Name, buyer_phone:payload->Data->Buyer->>PhoneNumber, offer:payload->Data->Offer->>Name",
+          "id, event, email, result, is_test, received_at, amount:payload->Data->Purchase->Price->>Value, original:payload->Data->Purchase->OriginalPrice->>Value, payment_id:payload->Data->Purchase->>PaymentId, buyer_name:payload->Data->Buyer->>Name, buyer_phone:payload->Data->Buyer->>PhoneNumber, offer:payload->Data->Offer->>Name",
         )
         .gte("received_at", since90)
         .order("received_at", { ascending: false })
@@ -269,6 +281,15 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
   const today = dayKey(new Date(now));
   const usersByEmail = new Map(users.map((u) => [u.email, u]));
   const usersById = new Map(users.map((u) => [u.id, u]));
+
+  // Valor da última venda de cada e-mail (preço da oferta, sem juros do parcelamento).
+  // Os avisos vêm do mais novo para o mais antigo, então o primeiro de cada e-mail vale.
+  const saleValue = new Map<string, number>();
+  for (const e of events) {
+    if (e.is_test || !e.email || !PAYMENT_EVENTS.has(e.event.toLowerCase()) || NOT_COUNTED.has(e.result)) continue;
+    const v = valueOf(e);
+    if (v !== null && !saleValue.has(e.email.toLowerCase())) saleValue.set(e.email.toLowerCase(), v);
+  }
 
   // Uso por usuário (ativações de token).
   const usage = new Map<string, { last: string; uses7: number; uses30: number; ips7: Set<string> }>();
@@ -299,8 +320,11 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
     if (s.refunded_at) flags.push("Reembolsado");
     if (s.chargeback_at) flags.push("Chargeback");
     const lastUseTs = use ? new Date(use.last).getTime() : 0;
-    const idle = active && !!account && (!use || now - lastUseTs > 14 * DAY);
-    const bought = s.last_payment_at ?? s.created_at;
+    // Parado = sem gerar token há mais de 14 dias. Quem nunca usou conta a partir da
+    // criação da conta (quem acabou de comprar não é "parado").
+    const idleSince = use ? lastUseTs : account ? new Date(account.created_at).getTime() : now;
+    const idle = active && !!account && now - idleSince > 14 * DAY;
+    const bought = s.last_payment_at;
     return {
       email,
       name: s.name,
@@ -312,6 +336,7 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
       source: s.source === "lastlink" ? "Lastlink" : "Manual",
       hasAccount: !!account,
       accountCreated: fmtDate(account?.created_at),
+      accountAgeDays: account ? Math.floor((now - new Date(account.created_at).getTime()) / DAY) : 0,
       lastLogin: fmtDateTime(account?.last_sign_in_at),
       lastLoginRel: relative(account?.last_sign_in_at, now),
       lastUse: fmtDateTime(use?.last),
@@ -321,8 +346,8 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
       renewal: s.cancel_at_period_end ? "Cancelada" : fmtDate(s.next_billing_at),
       accessUntil: s.billing_period === "Vitalício" ? "Vitalício" : fmtDate(s.current_period_end) ?? (active ? "Sem data" : null),
       boughtAt: fmtDate(bought),
-      boughtAtTs: new Date(bought).getTime(),
-      amount: toNumber(s.last_payment_amount),
+      boughtAtTs: new Date(bought ?? s.created_at).getTime(),
+      amount: bought ? (saleValue.get(email) ?? toNumber(s.last_payment_amount)) : null,
       flags,
       idle,
     };
@@ -354,16 +379,40 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
   // Compras e reembolsos de contas liberadas à mão (dono, sócios, cortesias) são testes
   // internos: aparecem na lista de avisos, mas não entram em vendas, faturamento e reembolsos.
   const internal = new Set(subs.filter((s) => s.source !== "lastlink").map((s) => s.email.toLowerCase()));
-  const counted = realEvents.filter((e) => !NOT_COUNTED.has(e.result) && !(e.email && internal.has(e.email.toLowerCase())));
-  const within = (e: EventRow, days: number) => now - new Date(e.received_at).getTime() <= days * DAY;
+  // O mesmo pagamento (PaymentId) nunca conta duas vezes no mesmo tipo de aviso.
+  const seenPayment = new Set<string>();
+  const counted = realEvents.filter((e) => {
+    if (NOT_COUNTED.has(e.result) || (e.email && internal.has(e.email.toLowerCase()))) return false;
+    if (e.payment_id) {
+      const k = `${e.event.toLowerCase()}:${e.payment_id}`;
+      if (seenPayment.has(k)) return false;
+      seenPayment.add(k);
+    }
+    return true;
+  });
+  // Janelas por dia do calendário (Brasília), iguais às do gráfico: "30 dias" = hoje + 29 anteriores.
+  const startKey = (days: number) => dayKey(new Date(now - (days - 1) * DAY));
+  const inDays = (iso: string, days: number) => dayKey(iso) >= startKey(days);
+  const within = (e: EventRow, days: number) => inDays(e.received_at, days);
 
-  const sales = counted.filter((e) => ev(e) === "purchase_order_confirmed");
-  const renewals = counted.filter((e) => ev(e) === "recurrent_payment");
   const refunds = counted.filter((e) => ev(e) === "payment_refund");
   const chargebacks = counted.filter((e) => ev(e) === "payment_chargeback");
-  const payments = counted.filter((e) => PAYMENT_EVENTS.has(ev(e)));
 
-  const sum = (list: EventRow[]) => list.reduce((acc, e) => acc + (toNumber(e.amount) ?? 0), 0);
+  // Cada reembolso/chargeback anula o pagamento mais recente daquele e-mail feito antes dele.
+  // Vendas, faturamento e gráfico contam só pagamentos que NÃO foram devolvidos.
+  const allPayments = counted.filter((e) => PAYMENT_EVENTS.has(ev(e)));
+  const undone = new Set<string>();
+  for (const r of [...refunds, ...chargebacks]) {
+    const target = allPayments.find(
+      (p) => p.email && r.email && p.email.toLowerCase() === r.email.toLowerCase() && p.received_at <= r.received_at && !undone.has(p.id),
+    );
+    if (target) undone.add(target.id);
+  }
+  const payments = allPayments.filter((p) => !undone.has(p.id));
+  const sales = payments.filter((e) => ev(e) === "purchase_order_confirmed");
+  const renewals = payments.filter((e) => ev(e) === "recurrent_payment");
+
+  const sum = (list: EventRow[]) => list.reduce((acc, e) => acc + (valueOf(e) ?? 0), 0);
 
   // Série diária dos últimos 30 dias (Brasília).
   const days: DayPoint[] = [];
@@ -381,7 +430,7 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
     if (i === undefined) continue;
     if (ev(e) === "purchase_order_confirmed") salesDaily[i].a++;
     else salesDaily[i].b++;
-    salesDaily[i].amount += toNumber(e.amount) ?? 0;
+    salesDaily[i].amount += valueOf(e) ?? 0;
   }
   const usageIdx = new Map(usageDaily.map((d, i) => [d.key, i]));
   const usersPerDay = new Map<string, Set<string>>();
@@ -412,7 +461,7 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
 
   // Atenção
   const renewSoon: AttentionItem[] = activeSubs
-    .filter((s) => !s.cancel_at_period_end && s.next_billing_at)
+    .filter((s) => s.source === "lastlink" && !s.cancel_at_period_end && s.next_billing_at)
     .filter((s) => {
       const t = new Date(s.next_billing_at!).getTime();
       return t >= now - DAY && t <= now + 7 * DAY;
@@ -439,7 +488,7 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
   const idle: AttentionItem[] = clients
     .filter((c) => c.idle)
     .sort((a, b) => a.lastUseTs - b.lastUseTs)
-    .map((c) => ({ email: c.email, name: c.name, detail: `${c.plan} · ${c.lastUse ? `último uso ${c.lastUse}` : "nunca gerou token"}`, when: c.lastUseRel }));
+    .map((c) => ({ email: c.email, name: c.name, detail: `${c.plan} · ${c.lastUse ? `último uso ${c.lastUse}` : c.accountAgeDays > 90 ? "sem gerar token há mais de 90 dias" : `nunca gerou token · conta criada ${c.accountCreated}`}`, when: c.lastUseRel ?? `há ${c.accountAgeDays} dias` }));
 
   // Uso e segurança: quem mais gerou tokens em 7 dias.
   const topUsers = [...usage.entries()]
@@ -463,7 +512,7 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
   const activeEmails = new Set(activeClients.map((c) => c.email));
   const seen = new Set<string>();
   const abandoned = realEvents
-    .filter((e) => ev(e) === "abandoned_cart" && within(e, 30) && e.email && !activeEmails.has(e.email))
+    .filter((e) => ev(e) === "abandoned_cart" && within(e, 30) && e.email && !activeEmails.has(e.email) && !internal.has(e.email))
     .filter((e) => (seen.has(e.email!) ? false : (seen.add(e.email!), true)))
     .slice(0, 30)
     .map((e) => ({ email: e.email!, name: e.buyer_name, whatsapp: whatsappNumber(e.buyer_phone), offer: e.offer, when: relative(e.received_at, now) }));
@@ -483,9 +532,9 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
     chargebacks30: chargebacks.filter((e) => within(e, 30)).length,
     pending: pending.length,
     cancelScheduled: activeSubs.filter((s) => s.cancel_at_period_end).length,
-    activations7: logs.filter((l) => now - new Date(l.created_at).getTime() <= 7 * DAY).length,
+    activations7: logs.filter((l) => inDays(l.created_at, 7)).length,
     activationsToday: logs.filter((l) => dayKey(l.created_at) === today).length,
-    activeUsers7: [...usage.values()].filter((u) => u.uses7 > 0).length,
+    activeUsers7: new Set(logs.filter((l) => inDays(l.created_at, 7)).map((l) => l.user_id)).size,
     abandoned30: abandoned.length,
   };
 
@@ -510,7 +559,8 @@ export function buildAdminData({ subs, users, logs, events }: RawAdminData, now 
       result: e.result,
       isTest: e.is_test,
       when: fmtDateTime(e.received_at),
-      amount: toNumber(e.amount),
+      amount: valueOf(e),
+      paid: toNumber(e.amount),
     })),
     clients,
   };

@@ -193,13 +193,13 @@ export default function AdminView({ email, data }: { email: string; data: AdminD
               label="Faturamento 30 dias"
               value={brl(k.revenue30)}
               color={C.cyan}
-              sub={`Hoje: ${brl(k.revenueToday)}`}
+              sub={`Hoje: ${brl(k.revenueToday)} · preço da oferta, sem juros e sem reembolsos`}
             />
             <Kpi
               label="Vendas novas 30 dias"
               value={k.newSales30}
               color={C.blue}
-              sub={`Hoje ${k.newSalesToday} · 7 dias ${k.newSales7} · ${k.renewals30} renovações`}
+              sub={`Hoje ${k.newSalesToday} · 7 dias ${k.newSales7} · ${k.renewals30} renovações · sem reembolsadas`}
             />
             <Kpi
               label="Primeiro acesso pendente"
@@ -377,6 +377,11 @@ export default function AdminView({ email, data }: { email: string; data: AdminD
                             {e.amount ? <span className="ml-2 font-mono text-[12px] text-ink-mute">{brl(e.amount)}</span> : null}
                             {e.isTest && <span className="ml-2 text-[11px] text-ink-mute">(teste)</span>}
                           </p>
+                          {e.paid !== null && e.amount !== null && e.paid - e.amount > 0.01 && (
+                            <p className="truncate text-[12px] text-ink-mute">
+                              Cliente pagou {e.paid.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} parcelado (juros do cartão)
+                            </p>
+                          )}
                           <p className="truncate text-[12px] text-ink-mute">
                             {e.email ?? "sem e-mail"} · {e.when}
                           </p>
