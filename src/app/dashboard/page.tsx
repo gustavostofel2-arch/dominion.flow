@@ -44,7 +44,7 @@ export default async function DashboardPage() {
       plan={planLabel}
       renewal={renewal}
       checkoutUrl={process.env.NEXT_PUBLIC_CHECKOUT_URL ?? null}
-      showAdmin={isAdminEmail(user.email)}
+      showAdmin={await isAdminEmail(user.email)}
     />
   );
 }

@@ -20,7 +20,7 @@ async function requireAdmin() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user || !isAdminEmail(user.email)) throw new Error("Não autorizado");
+  if (!user || !(await isAdminEmail(user.email))) throw new Error("Não autorizado");
   return user.email!.toLowerCase();
 }
 

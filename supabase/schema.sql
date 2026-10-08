@@ -625,6 +625,84 @@ grant execute on function public.admin_recovery_requests(timestamptz) to service
 
 
 -- =====================================================================
+-- PAINEL ADMIN: quem é admin + aviso em tempo real.
+-- O banco só manda um SINAL ("algo mudou") num canal privado que apenas admins escutam;
+-- nenhum dado de cliente vai por ele (o painel busca os dados pelo servidor, como sempre).
+-- O sinal NUNCA atrapalha a gravação: se falhar, é ignorado (compra, acesso e token seguem).
+-- =====================================================================
+create table if not exists public.admin_users (
+  email      text primary key check (email = lower(btrim(email))),
+  created_at timestamptz not null default now()
+);
+alter table public.admin_users enable row level security;
+revoke all on public.admin_users from anon, authenticated;
+
+insert into public.admin_users (email) values
+  ('gustavostofel21@gmail.com'),
+  ('higormachado.designer@gmail.com')
+on conflict (email) do nothing;
+
+-- Quem está logado é admin? (usado pela regra do canal de tempo real)
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.admin_users a
+     where a.email = lower(coalesce((select auth.jwt()) ->> 'email', ''))
+  );
+$$;
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated, service_role;
+
+-- Sinal para o painel (uma vez por comando, sem dados do cliente; erro nunca derruba a gravação).
+create or replace function public.notify_admin_panel()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  begin
+    perform realtime.send(jsonb_build_object('table', tg_table_name), 'changed', 'admin-panel', true);
+  exception when others then
+    null;
+  end;
+  return null;
+end;
+$$;
+revoke all on function public.notify_admin_panel() from public, anon, authenticated;
+
+drop trigger if exists admin_panel_notify on public.subscriptions;
+create trigger admin_panel_notify after insert or update or delete on public.subscriptions
+  for each statement execute function public.notify_admin_panel();
+drop trigger if exists admin_panel_notify on public.webhook_events;
+create trigger admin_panel_notify after insert or update or delete on public.webhook_events
+  for each statement execute function public.notify_admin_panel();
+drop trigger if exists admin_panel_notify on public.activation_logs;
+create trigger admin_panel_notify after insert or update or delete on public.activation_logs
+  for each statement execute function public.notify_admin_panel();
+drop trigger if exists admin_panel_notify on public.email_log;
+create trigger admin_panel_notify after insert or update or delete on public.email_log
+  for each statement execute function public.notify_admin_panel();
+
+-- Só admins podem escutar o canal privado "admin-panel".
+do $$
+begin
+  if to_regclass('realtime.messages') is not null then
+    drop policy if exists "admins escutam o painel" on realtime.messages;
+    create policy "admins escutam o painel" on realtime.messages
+      for select to authenticated
+      using ((select realtime.topic()) = 'admin-panel' and (select public.is_admin()));
+  end if;
+end;
+$$;
+
+
+-- =====================================================================
 -- COMANDOS ÚTEIS DO DIA A DIA (não rode junto — copie quando precisar)
 -- =====================================================================
 

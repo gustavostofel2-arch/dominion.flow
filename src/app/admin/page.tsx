@@ -19,7 +19,7 @@ export default async function AdminPage() {
 
   // Quem não está na lista (ou não está logado) recebe "página não encontrada":
   // nem fica sabendo que esta tela existe.
-  if (!user || !isAdminEmail(user.email)) notFound();
+  if (!user || !(await isAdminEmail(user.email))) notFound();
 
   const data = await loadAdminData();
   return <AdminView data={data} />;

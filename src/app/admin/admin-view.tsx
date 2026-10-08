@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import { Brand, Footer } from "@/components/ui";
 import SignOutButton from "../dashboard/sign-out-button";
 import ClientDrawer from "./client-drawer";
@@ -73,16 +75,53 @@ export default function AdminView({ data }: { data: AdminData }) {
   // Busca os dados de novo no servidor sem recarregar a página (uma requisição só).
   const refresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
 
-  // Atualiza sozinho a cada 5 minutos enquanto a aba do navegador estiver visível e nenhuma
-  // janela (e-mail, ficha) estiver aberta. Só lê o Supabase: o Resend é só pelo botão.
+  // Tempo real: o banco avisa no canal privado "admin-panel" quando algo muda (só um sinal,
+  // sem dados). O painel espera 3s para juntar avisos seguidos e busca os dados pelo servidor.
+  const [live, setLive] = useState<"connecting" | "on" | "off">("connecting");
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+  useEffect(() => {
+    const supabase = createClient();
+    let channel: RealtimeChannel | null = null;
+    let timer: number | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        await supabase.realtime.setAuth();
+      } catch {
+        /* segue sem token: o canal privado recusa e cai no modo de 5 minutos */
+      }
+      if (cancelled) return;
+      channel = supabase
+        .channel("admin-panel", { config: { private: true } })
+        .on("broadcast", { event: "changed" }, () => {
+          window.clearTimeout(timer);
+          timer = window.setTimeout(() => refreshRef.current(), 3000);
+        })
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") setLive("on");
+          else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setLive("off");
+        });
+    })();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Sem tempo real (ainda conectando ou indisponível): atualiza sozinho a cada 5 minutos, com a
+  // aba visível e nenhuma janela aberta. Só lê o Supabase: o Resend é só pelo botão.
   const busy = !!compose || !!clientEmail;
   useEffect(() => {
-    if (busy) return;
+    if (busy || live === "on") return;
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") refresh();
     }, 5 * 60_000);
     return () => window.clearInterval(id);
-  }, [busy, refresh]);
+  }, [busy, live, refresh]);
 
   // A aba fica no endereço (#clientes etc.) para voltar nela ao atualizar a página.
   useEffect(() => {
@@ -227,7 +266,7 @@ export default function AdminView({ data }: { data: AdminData }) {
             <div className="flex items-center gap-3 text-sm text-ink-mute">
               <span className="dk-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5">
                 <span className="dk-pulse" />
-                {refreshing ? "Atualizando…" : `Atualizado ${data.generatedAt} · automático a cada 5 min`}
+                {refreshing ? "Atualizando…" : live === "on" ? `Tempo real ligado · ${data.generatedAt}` : `Atualizado ${data.generatedAt} · automático a cada 5 min`}
               </span>
               <button type="button" onClick={refresh} disabled={refreshing} className="btn-ghost disabled:opacity-60">
                 {refreshing ? "Atualizando…" : "Atualizar"}

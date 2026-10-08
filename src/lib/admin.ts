@@ -1,10 +1,13 @@
 import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-// Únicos e-mails que enxergam o painel administrativo (/admin). Para trocar sem
-// mexer no código, defina ADMIN_EMAILS na Vercel (separados por vírgula).
+// Quem enxerga o painel administrativo (/admin): e-mails da tabela admin_users no banco.
+// Para incluir alguém: insert into public.admin_users (email) values ('novo@email.com');
+// A mesma tabela decide quem escuta o tempo real do painel (regra do banco).
+// Enquanto a tabela não existir (SQL ainda não rodado), vale a lista abaixo / ADMIN_EMAILS.
 const DEFAULT_ADMIN_EMAILS = ["gustavostofel21@gmail.com", "higormachado.designer@gmail.com"];
 
-function adminEmails(): string[] {
+function fallbackEmails(): string[] {
   const fromEnv = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
@@ -12,7 +15,10 @@ function adminEmails(): string[] {
   return fromEnv.length > 0 ? fromEnv : DEFAULT_ADMIN_EMAILS;
 }
 
-export function isAdminEmail(email: string | null | undefined): boolean {
+export async function isAdminEmail(email: string | null | undefined): Promise<boolean> {
   if (!email) return false;
-  return adminEmails().includes(email.trim().toLowerCase());
+  const e = email.trim().toLowerCase();
+  const { data, error } = await createAdminClient().from("admin_users").select("email").eq("email", e).maybeSingle();
+  if (!error) return !!data;
+  return fallbackEmails().includes(e);
 }
