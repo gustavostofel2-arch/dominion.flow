@@ -195,3 +195,61 @@ export function Checkbox({ checked, onChange, label }: { checked: boolean; onCha
     />
   );
 }
+
+// ---------- Confirmação no visual do painel (no lugar do aviso do navegador) ----------
+
+type ConfirmOptions = { title: string; message?: ReactNode; confirmLabel?: string; cancelLabel?: string; danger?: boolean };
+
+/** const [confirm, confirmEl] = useConfirm(); if (await confirm({...})) … ; renderize {confirmEl}. */
+export function useConfirm() {
+  const [state, setState] = useState<(ConfirmOptions & { resolve: (v: boolean) => void }) | null>(null);
+  const ask = (o: ConfirmOptions) => new Promise<boolean>((resolve) => setState({ ...o, resolve }));
+  const close = (v: boolean) => {
+    state?.resolve(v);
+    setState(null);
+  };
+  const el = state ? (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-5 backdrop-blur-sm"
+      onClick={() => close(false)}
+      onKeyDown={(e) => e.key === "Escape" && close(false)}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={state.title}
+        onClick={(e) => e.stopPropagation()}
+        className="card card-strong w-full max-w-md p-6 sm:p-7"
+      >
+        <div className="flex items-start gap-3">
+          <span
+            className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-base ${
+              state.danger ? "border-[#ff2d55]/40 bg-[#ff2d55]/15 text-[#ff8fa3]" : "border-[#3fd0ff]/40 bg-[#3fd0ff]/15 text-[#7be3ff]"
+            }`}
+            aria-hidden="true"
+          >
+            {state.danger ? "!" : "✉"}
+          </span>
+          <div className="min-w-0">
+            <p className="text-lg font-semibold tracking-tight text-ink">{state.title}</p>
+            {state.message && <div className="mt-1.5 text-sm leading-relaxed text-ink-soft">{state.message}</div>}
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => close(false)} className="btn-ghost !h-11">
+            {state.cancelLabel ?? "Cancelar"}
+          </button>
+          <button
+            type="button"
+            autoFocus
+            onClick={() => close(true)}
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-[#ff2d55] px-6 text-sm font-semibold text-white shadow-[0_14px_30px_-12px_rgba(255,45,85,0.65)] transition hover:bg-[#e91e48]"
+          >
+            {state.confirmLabel ?? "Confirmar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+  return [ask, el] as const;
+}

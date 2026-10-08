@@ -6,7 +6,7 @@ import { CheckIcon, CopyIcon } from "@/components/ui";
 import { sendEmailsAction, type SendResult } from "./actions";
 import { fill, templateVars, whatsappText, type EmailTemplate, type Recipient } from "./email-templates";
 import type { AdminData, ContactRow } from "./data";
-import { Badge, Checkbox, Empty, Pager, Scroll, usePager } from "./ui-kit";
+import { Badge, Checkbox, Empty, Pager, Scroll, useConfirm, usePager } from "./ui-kit";
 
 // Mensagens do painel: janela de e-mail (modelo + prévia), botões de WhatsApp/copiar
 // e as listas de contato com caixa de seleção.
@@ -221,6 +221,7 @@ export function ComposeModal({ targets, initialTemplate, onClose }: { targets: R
   const [force, setForce] = useState(false);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
+  const [confirm, confirmEl] = useConfirm();
 
   const remaining = data.email.limit - data.email.sent24;
   const first = targets[0];
@@ -234,7 +235,22 @@ export function ComposeModal({ targets, initialTemplate, onClose }: { targets: R
   }
 
   async function send() {
-    if (!window.confirm(`Enviar este e-mail para ${targets.length} pessoa${targets.length === 1 ? "" : "s"}?`)) return;
+    const ok = await confirm({
+      title: `Enviar para ${targets.length} pessoa${targets.length === 1 ? "" : "s"}?`,
+      message: (
+        <>
+          <p>
+            Assunto: <span className="text-ink">{fill(draft.subject, vars)}</span>
+          </p>
+          <p className="mt-1">{targets.length === 1 ? first.email : `${first.email} e mais ${targets.length - 1}`}</p>
+          <p className="mt-1 text-[12px] text-ink-mute">
+            Usa {targets.length} da cota de hoje (restam {Math.max(0, remaining)}).
+          </p>
+        </>
+      ),
+      confirmLabel: "Enviar agora",
+    });
+    if (!ok) return;
     setSending(true);
     try {
       const r = await sendEmailsAction({
@@ -265,6 +281,7 @@ export function ComposeModal({ targets, initialTemplate, onClose }: { targets: R
         aria-modal="true"
         aria-label="Enviar e-mail"
       >
+        {confirmEl}
         <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4 sm:px-7">
           <div className="min-w-0">
             <p className="text-lg font-semibold">Enviar e-mail</p>

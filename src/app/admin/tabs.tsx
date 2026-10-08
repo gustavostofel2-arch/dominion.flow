@@ -8,7 +8,7 @@ import { resetTemplateAction, saveReplyToAction, saveTemplateAction } from "./ac
 import { DEFAULT_TEMPLATES, VARIABLES, fill, templateVars, type EmailTemplate } from "./email-templates";
 import type { AttentionItem } from "./data";
 import { ContactList, useAdmin } from "./messaging";
-import { Badge, Columns, Empty, Kpi, Pager, Panel, Scroll, brl, usePager, type Tone } from "./ui-kit";
+import { Badge, Columns, Empty, Kpi, Pager, Panel, Scroll, brl, useConfirm, usePager, type Tone } from "./ui-kit";
 
 // ---------- Dashboard ----------
 
@@ -258,6 +258,7 @@ function TemplateEditor({ t }: { t: EmailTemplate }) {
   const [busy, setBusy] = useState(false);
   // Último campo em que o cursor esteve: a variável clicada entra exatamente ali.
   const form = useRef<HTMLDivElement>(null);
+  const [confirm, confirmEl] = useConfirm();
   const focused = useRef<{ key: "subject" | "body" | "button_url"; el: HTMLInputElement | HTMLTextAreaElement } | null>(null);
   const dirty = d.subject !== t.subject || d.body !== t.body || d.button_label !== t.button_label || d.button_url !== t.button_url;
   const vars = templateVars({ email: "cliente@exemplo.com", name: "Maria Silva", plan: "Mensal", renewal: "10/11/2026" }, data.checkoutUrl);
@@ -290,7 +291,13 @@ function TemplateEditor({ t }: { t: EmailTemplate }) {
     if (r.ok) router.refresh();
   }
   async function reset() {
-    if (!window.confirm("Voltar este modelo para o texto padrão?")) return;
+    const ok = await confirm({
+      title: "Restaurar o texto padrão?",
+      message: "O assunto, a mensagem e o botão deste modelo voltam ao texto original. As suas alterações serão perdidas.",
+      confirmLabel: "Restaurar",
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     const r = await resetTemplateAction(t.id);
     setBusy(false);
@@ -304,6 +311,7 @@ function TemplateEditor({ t }: { t: EmailTemplate }) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
+      {confirmEl}
       <div ref={form} className="space-y-3">
         <label className="block">
           <span className="mb-1.5 block text-[12px] text-ink-mute">Assunto</span>
