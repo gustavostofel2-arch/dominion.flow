@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AreaLine, C, Donut, Funnel, StackedBars } from "./charts";
 import { eventLabel, resultOf } from "./client-drawer";
 import { resetTemplateAction, saveReplyToAction, saveTemplateAction } from "./actions";
-import { VARIABLES, fill, templateVars, type EmailTemplate } from "./email-templates";
+import { DEFAULT_TEMPLATES, VARIABLES, fill, templateVars, type EmailTemplate } from "./email-templates";
 import type { AttentionItem } from "./data";
 import { ContactList, useAdmin } from "./messaging";
 import { Badge, Columns, Empty, Kpi, Pager, Panel, Scroll, brl, usePager, type Tone } from "./ui-kit";
@@ -256,9 +256,31 @@ function TemplateEditor({ t }: { t: EmailTemplate }) {
   const [d, setD] = useState(t);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Último campo em que o cursor esteve: a variável clicada entra exatamente ali.
+  const form = useRef<HTMLDivElement>(null);
+  const focused = useRef<{ key: "subject" | "body" | "button_url"; el: HTMLInputElement | HTMLTextAreaElement } | null>(null);
   const dirty = d.subject !== t.subject || d.body !== t.body || d.button_label !== t.button_label || d.button_url !== t.button_url;
   const vars = templateVars({ email: "cliente@exemplo.com", name: "Maria Silva", plan: "Mensal", renewal: "10/11/2026" }, data.checkoutUrl);
   const field = "field !h-11 !text-sm";
+
+  function insertVar(name: string) {
+    const token = `{{${name}}}`;
+    // Campo com o cursor agora (o botão não tira o foco); senão o último usado; senão a mensagem.
+    const active = document.activeElement;
+    const inForm = active instanceof HTMLElement && form.current?.contains(active) ? active : null;
+    const field = inForm?.dataset.field as "subject" | "body" | "button_url" | undefined;
+    const f = field ? { key: field, el: inForm as HTMLInputElement | HTMLTextAreaElement } : (focused.current ?? { key: "body" as const, el: null });
+    const cur = (f.key === "button_url" ? d.button_url : d[f.key]) ?? "";
+    const start = f.el?.selectionStart ?? cur.length;
+    const end = f.el?.selectionEnd ?? cur.length;
+    const next = cur.slice(0, start) + token + cur.slice(end);
+    setD({ ...d, [f.key]: next });
+    requestAnimationFrame(() => {
+      if (!f.el) return;
+      f.el.focus();
+      f.el.setSelectionRange(start + token.length, start + token.length);
+    });
+  }
 
   async function save() {
     setBusy(true);
@@ -272,20 +294,24 @@ function TemplateEditor({ t }: { t: EmailTemplate }) {
     setBusy(true);
     const r = await resetTemplateAction(t.id);
     setBusy(false);
-    setMsg(r.ok ? "Restaurado ✓ (atualize a página)" : (r.error ?? "Erro"));
-    if (r.ok) router.refresh();
+    if (r.ok) {
+      const def = DEFAULT_TEMPLATES.find((x) => x.id === t.id);
+      if (def) setD(def);
+      router.refresh();
+    }
+    setMsg(r.ok ? "Restaurado para o texto padrão ✓" : (r.error ?? "Erro"));
   }
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <div className="space-y-3">
+      <div ref={form} className="space-y-3">
         <label className="block">
           <span className="mb-1.5 block text-[12px] text-ink-mute">Assunto</span>
-          <input value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value })} className={field} />
+          <input data-field="subject" value={d.subject} onFocus={(e) => (focused.current = { key: "subject", el: e.currentTarget })} onChange={(e) => setD({ ...d, subject: e.target.value })} className={field} />
         </label>
         <label className="block">
           <span className="mb-1.5 block text-[12px] text-ink-mute">Mensagem (também usada no WhatsApp)</span>
-          <textarea value={d.body} onChange={(e) => setD({ ...d, body: e.target.value })} rows={12} className="field !h-auto !py-3 !text-sm leading-relaxed" />
+          <textarea data-field="body" value={d.body} onFocus={(e) => (focused.current = { key: "body", el: e.currentTarget })} onChange={(e) => setD({ ...d, body: e.target.value })} rows={12} className="field !h-auto !py-3 !text-sm leading-relaxed" />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
@@ -294,19 +320,22 @@ function TemplateEditor({ t }: { t: EmailTemplate }) {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-[12px] text-ink-mute">Link do botão</span>
-            <input value={d.button_url ?? ""} onChange={(e) => setD({ ...d, button_url: e.target.value || null })} className={field} />
+            <input data-field="button_url" value={d.button_url ?? ""} onFocus={(e) => (focused.current = { key: "button_url", el: e.currentTarget })} onChange={(e) => setD({ ...d, button_url: e.target.value || null })} className={field} />
           </label>
         </div>
+        <p className="text-[12px] text-ink-mute">Variáveis: clique para colocar onde está o cursor. O sistema troca pelo dado de cada pessoa no envio.</p>
         <div className="flex flex-wrap gap-1.5">
           {VARIABLES.map((v) => (
             <button
               key={v.key}
               type="button"
               title={v.label}
-              onClick={() => setD({ ...d, body: `${d.body}{{${v.key}}}` })}
-              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 font-mono text-[11px] text-ink-mute hover:text-ink"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => insertVar(v.key)}
+              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-left text-[11px] text-ink-mute hover:text-ink"
             >
-              {`{{${v.key}}}`}
+              <span className="font-mono text-[#7be3ff]">{`{{${v.key}}}`}</span>
+              <span className="ml-1.5">{v.label}</span>
             </button>
           ))}
         </div>

@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { dailyEmailLimit, emailConfigured } from "@/lib/email";
-import { mergeTemplates, type EmailTemplate } from "./email-templates";
+import { DEFAULT_REPLY_TO, EMAIL_CHECKOUT_URL, mergeTemplates, type EmailTemplate } from "./email-templates";
 
 // Monta os números do painel administrativo. Só LÊ o banco.
 
@@ -374,7 +374,7 @@ export async function loadAdminData(): Promise<AdminData> {
     for (const r of data ?? []) everUsed.add(r.user_id);
   }
 
-  return buildAdminData({ subs, users, logs, events, everUsed, ...emailPart, checkoutUrl: process.env.NEXT_PUBLIC_CHECKOUT_URL ?? null }, now);
+  return buildAdminData({ subs, users, logs, events, everUsed, ...emailPart, checkoutUrl: EMAIL_CHECKOUT_URL }, now);
 }
 
 async function loadEmailPart(admin: ReturnType<typeof createAdminClient>, now: number) {
@@ -393,7 +393,7 @@ async function loadEmailPart(admin: ReturnType<typeof createAdminClient>, now: n
     emailReady: !tpl.error && !log.error,
     savedTemplates: (tpl.data ?? []) as Partial<EmailTemplate>[],
     emailLog: (log.data ?? []) as EmailLogRow[],
-    replyTo: setting.data?.value ?? null,
+    replyTo: setting.data?.value || DEFAULT_REPLY_TO,
     recoveryReady: !rec.error,
     recovery: (rec.data ?? []) as RecoveryRow[],
   };

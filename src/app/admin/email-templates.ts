@@ -2,6 +2,11 @@
 // prévia da tela e no envio. Os textos salvos no banco substituem estes padrões.
 
 export const SITE_URL = "https://dominion-flow.app";
+// Links fixos dos e-mails. O checkout é o do produto oficial na Lastlink (só para os e-mails;
+// o botão "Assinar agora" da área de membros continua usando NEXT_PUBLIC_CHECKOUT_URL).
+export const EMAIL_CHECKOUT_URL = "https://lastlink.com/p/CFBB49CB7/checkout-payment/";
+// Para onde vão as respostas dos clientes, se nada for salvo na aba E-mails.
+export const DEFAULT_REPLY_TO = "gustavostofel2@gmail.com";
 export const SUPPORT_WHATSAPP = "5521984073616";
 export const SUPPORT_WHATSAPP_LABEL = "(21) 98407-3616";
 
@@ -90,6 +95,7 @@ export const VARIABLES = [
   { key: "email", label: "E-mail" },
   { key: "plano", label: "Plano" },
   { key: "renovacao", label: "Data de renovação" },
+  { key: "link_site", label: "Site (dominion-flow.app)" },
   { key: "link_login", label: "Link de login" },
   { key: "link_painel", label: "Link da área de membros" },
   { key: "link_checkout", label: "Link do checkout" },
@@ -113,9 +119,10 @@ export function templateVars(r: Recipient, checkoutUrl: string | null): Record<s
     email: r.email,
     plano: r.plan ?? "",
     renovacao: r.renewal ?? "",
+    link_site: `${SITE_URL}/`,
     link_login: `${SITE_URL}/login`,
     link_painel: `${SITE_URL}/dashboard`,
-    link_checkout: checkoutUrl ?? SITE_URL,
+    link_checkout: checkoutUrl ?? EMAIL_CHECKOUT_URL,
     whatsapp_suporte: SUPPORT_WHATSAPP_LABEL,
   };
 }

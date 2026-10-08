@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/admin";
 import { dailyEmailLimit, emailConfigured, renderEmailHtml, sendEmail } from "@/lib/email";
-import { DEFAULT_TEMPLATES, SUPPORT_WHATSAPP, fill, templateVars } from "./email-templates";
+import { DEFAULT_REPLY_TO, DEFAULT_TEMPLATES, EMAIL_CHECKOUT_URL, SUPPORT_WHATSAPP, fill, templateVars } from "./email-templates";
 
 // Ações do painel admin. TODAS conferem no servidor se quem chama é admin.
 // Nenhuma mexe em acesso, plano ou assinatura: só e-mails, modelos e leitura.
@@ -111,8 +111,8 @@ export async function sendEmailsAction(input: {
   }
 
   const { data: setting } = await db.from("admin_settings").select("value").eq("key", "reply_to").maybeSingle();
-  const replyTo = setting?.value && EMAIL_RE.test(setting.value) ? setting.value : null;
-  const checkoutUrl = process.env.NEXT_PUBLIC_CHECKOUT_URL ?? null;
+  const replyTo = setting?.value && EMAIL_RE.test(setting.value) ? setting.value : DEFAULT_REPLY_TO;
+  const checkoutUrl = EMAIL_CHECKOUT_URL;
   const whatsappUrl = `https://wa.me/${SUPPORT_WHATSAPP}`;
 
   const result: SendResult = { ok: true, sent: [], failed: [], skipped: [], remaining };
