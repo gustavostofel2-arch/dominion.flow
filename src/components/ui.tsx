@@ -1,5 +1,6 @@
 // Peças visuais compartilhadas (marca, ícones, rodapé). Sem lógica.
 import type { ReactNode, SVGProps } from "react";
+import Image from "next/image";
 
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
@@ -77,17 +78,15 @@ export const EyeIcon = ({ open, ...p }: IconProps & { open: boolean }) => (
   </Icon>
 );
 
-/** Marca: "D" com sombra rosa/ciano deslocada (pegada TikTok do dominion.ia). */
+/** Marca: símbolo do Dominion (public/logo-mark.png). */
 export function BrandMark({ size = 40 }: { size?: number }) {
   return (
     <span
-      className="brand-mark relative inline-flex shrink-0 items-center justify-center rounded-xl bg-ink font-mono font-bold text-white"
-      style={{ width: size, height: size, fontSize: size * 0.5 }}
+      className="brand-mark relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-ink"
+      style={{ width: size, height: size }}
       aria-hidden="true"
     >
-      <span className="brand-mark-cyan absolute translate-x-[-1.5px] translate-y-[-1px] text-cyan">D</span>
-      <span className="absolute translate-x-[1.5px] translate-y-[1px] text-brand">D</span>
-      <span className="relative">D</span>
+      <Image src="/logo-mark.png" alt="" width={size} height={size} className="h-full w-full object-cover" priority />
     </span>
   );
 }

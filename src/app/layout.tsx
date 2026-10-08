@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,15 @@ export const metadata: Metadata = {
   title: "Dominion — Área de membros",
   description: "Acesse suas ferramentas Dominion e gere sua ativação.",
   robots: { index: false, follow: false },
+};
+
+// Sem zoom de pinça/duplo toque e sem o zoom automático do iPhone ao tocar num campo.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#03050b",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

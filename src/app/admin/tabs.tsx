@@ -427,14 +427,14 @@ function RecoveryPanel() {
   const known = new Set(data.clients.map((c) => c.email));
   return (
     <Panel
-      title="Recuperação de senha"
-      sub="Pedidos de “esqueci minha senha” dos alunos. Cada pedido é um e-mail enviado pelo Resend e gasta a mesma cota."
+      title="Histórico · Recuperação de senha"
+      sub="E-mails de “esqueci minha senha” (enviados pelo Supabase). Gastam a mesma cota."
     >
       {!r.ready ? (
         <Empty>Cadastre a RESEND_READ_API_KEY (chave “Full access” do Resend) na Vercel para ver os e-mails de senha e o status de entrega.</Empty>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-5">
-          <div className="space-y-5 lg:col-span-2">
+        <div className="space-y-5">
+          <div className="space-y-5">
             <div className="grid grid-cols-3 gap-3">
               {(
                 [
@@ -467,12 +467,12 @@ function RecoveryPanel() {
               </div>
             )}
           </div>
-          <div className="lg:col-span-3">
+          <div>
             {r.list.length === 0 ? (
               <Empty>Nenhum e-mail de recuperação de senha nos últimos 7 dias.</Empty>
             ) : (
               <>
-                <Scroll max={420}>
+                <Scroll max={360}>
                   <ul className="divide-y divide-white/5">
                     {p.slice.map((x, i) => (
                       <li
@@ -505,11 +505,46 @@ function RecoveryPanel() {
   );
 }
 
+function SentHistoryPanel() {
+  const { data } = useAdmin();
+  const e = data.email;
+  const p = usePager(e.log);
+  return (
+    <Panel title="Histórico · Enviados pelo painel" sub="E-mails que você ou o Higor enviaram (90 dias), com o status de entrega.">
+      {e.log.length === 0 ? (
+        <Empty>Nenhum e-mail enviado ainda.</Empty>
+      ) : (
+        <>
+          <Scroll max={520}>
+            <ul className="divide-y divide-white/5">
+              {p.slice.map((l, i) => (
+                <li key={i} className="flex items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{l.to}</p>
+                    <p className="truncate text-[12px] text-ink-mute">
+                      {l.template ?? "—"} · {l.subject}
+                    </p>
+                    <p className="truncate text-[12px] text-ink-mute">
+                      {l.when} · por {l.by}
+                      {l.error ? ` · ${l.error}` : ""}
+                    </p>
+                  </div>
+                  {l.status === "sent" ? l.delivery ? <DeliveryBadge status={l.delivery} /> : <Badge tone="ok">Enviado</Badge> : <Badge tone="bad">Erro</Badge>}
+                </li>
+              ))}
+            </ul>
+          </Scroll>
+          <Pager p={p} />
+        </>
+      )}
+    </Panel>
+  );
+}
+
 export function TabEmails() {
   const { data } = useAdmin();
   const [sel, setSel] = useState(data.email.templates[0].id);
   const t = data.email.templates.find((x) => x.id === sel)!;
-  const p = usePager(data.email.log);
   const e = data.email;
 
   return (
@@ -535,7 +570,10 @@ export function TabEmails() {
         <Kpi label="Remetente" value={<span className="text-[15px] sm:text-[17px]">dominion@</span>} color={C.violet} sub="mail.dominion-flow.app" />
       </div>
 
-      <RecoveryPanel />
+      <div className="grid items-start gap-4 xl:grid-cols-2">
+        <SentHistoryPanel />
+        <RecoveryPanel />
+      </div>
 
       <Panel title="E-mail para respostas" sub="Quando o cliente clicar em responder, a resposta vai para este e-mail.">
         <ReplyTo />
@@ -559,34 +597,6 @@ export function TabEmails() {
         <TemplateEditor key={`${t.id}:${t.subject}:${t.body}`} t={t} />
       </Panel>
 
-      <Panel title="Histórico de envios" sub="Últimos 90 dias">
-        {e.log.length === 0 ? (
-          <Empty>Nenhum e-mail enviado ainda.</Empty>
-        ) : (
-          <>
-            <Scroll max={560}>
-              <ul className="divide-y divide-white/5">
-                {p.slice.map((l, i) => (
-                  <li key={i} className="flex items-center gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{l.to}</p>
-                      <p className="truncate text-[12px] text-ink-mute">
-                        {l.template ?? "—"} · {l.subject}
-                      </p>
-                      <p className="truncate text-[12px] text-ink-mute">
-                        {l.when} · por {l.by}
-                        {l.error ? ` · ${l.error}` : ""}
-                      </p>
-                    </div>
-                    {l.status === "sent" ? l.delivery ? <DeliveryBadge status={l.delivery} /> : <Badge tone="ok">Enviado</Badge> : <Badge tone="bad">Erro</Badge>}
-                  </li>
-                ))}
-              </ul>
-            </Scroll>
-            <Pager p={p} />
-          </>
-        )}
-      </Panel>
     </div>
   );
 }

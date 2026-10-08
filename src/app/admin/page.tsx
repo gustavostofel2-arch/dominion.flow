@@ -22,5 +22,5 @@ export default async function AdminPage() {
   if (!user || !isAdminEmail(user.email)) notFound();
 
   const data = await loadAdminData();
-  return <AdminView email={user.email!} data={data} />;
+  return <AdminView data={data} />;
 }

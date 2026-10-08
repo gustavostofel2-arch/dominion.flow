@@ -29,6 +29,8 @@
 html {
   color-scheme: dark;
   background-color: #03050b;
+  /* sem zoom por duplo toque */
+  touch-action: manipulation;
 }
 
 body {
@@ -117,6 +119,8 @@ body {
   position: relative;
   isolation: isolate;
   overflow-x: hidden;
+  /* clip corta igual ao hidden, mas não quebra o cabeçalho fixo (position: sticky) */
+  overflow-x: clip;
   color: var(--ice);
   background: var(--bg-0);
   color-scheme: dark;
@@ -174,9 +178,9 @@ body {
 .theme-dark .site-footer-name { color: var(--ice); }
 .theme-dark .site-footer-text { color: var(--text-3); }
 
-/* ---------- Logo "D" ---------- */
+/* ---------- Logo ---------- */
 .theme-dark .brand-mark {
-  background: linear-gradient(160deg, #0f1a33, #070b16);
+  background: #000;
   color: var(--ice);
   border: 1px solid var(--glass-border);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 0 22px -4px rgba(47, 107, 255, 0.55);
