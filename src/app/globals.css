@@ -471,3 +471,17 @@ body {
 .theme-dark.admin-lite .card-strong {
   background: linear-gradient(160deg, rgba(28, 39, 66, 0.97) 0%, rgba(14, 22, 42, 0.97) 55%, rgba(20, 36, 82, 0.97) 100%);
 }
+
+/* ---------- Celular/tablet: cabeçalho fixo sem desfoque (o blur recalculado a cada rolagem faz a barra tremer) ---------- */
+@media (max-width: 1023px), (hover: none) {
+  .theme-dark .dk-header {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(7, 11, 22, 0.97);
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+}
