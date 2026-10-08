@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSubscriptionActive } from "@/lib/subscription";
-import { dailyEmailLimit, emailConfigured } from "@/lib/email";
+import { dailyEmailLimit, emailConfigured, listSentEmails } from "@/lib/email";
 import { DEFAULT_REPLY_TO, EMAIL_CHECKOUT_URL, mergeTemplates, type EmailTemplate } from "./email-templates";
 
 // Monta os números do painel administrativo. Só LÊ o banco.
@@ -54,8 +54,17 @@ type EventRow = {
 };
 
 type AuthUser = { id: string; email: string; created_at: string; last_sign_in_at: string | null };
-type RecoveryRow = { created_at: string; email: string | null; ip: string | null };
-type EmailLogRow = { to_email: string; template_id: string | null; subject: string; status: string; error: string | null; sent_by: string; created_at: string };
+type RecoveryRow = { created_at: string; email: string | null; subject: string };
+type EmailLogRow = {
+  to_email: string;
+  template_id: string | null;
+  subject: string;
+  status: string;
+  error: string | null;
+  sent_by: string;
+  created_at: string;
+  provider_id: string | null;
+};
 
 // ---------- Formatação (feita no servidor para a tela não "piscar") ----------
 
@@ -316,12 +325,13 @@ export type AdminData = {
       ready: boolean;
       last24: number;
       last7: number;
-      last30: number;
+      /** Todos os e-mails que saíram do Resend nas últimas 24h (painel + senha). */
+      total24: number | null;
       daily: Bar[];
-      list: { email: string; name: string | null; when: string | null; rel: string | null; ip: string | null }[];
+      list: { email: string; name: string | null; when: string | null; rel: string | null; subject: string; status: string | null }[];
       top: { email: string; count: number }[];
     };
-    log: { to: string; template: string | null; subject: string; status: string; error: string | null; by: string; when: string | null }[];
+    log: { to: string; template: string | null; subject: string; status: string; error: string | null; by: string; when: string | null; delivery: string | null }[];
   };
 };
 
@@ -378,24 +388,34 @@ export async function loadAdminData(): Promise<AdminData> {
 }
 
 async function loadEmailPart(admin: ReturnType<typeof createAdminClient>, now: number) {
-  const [tpl, log, setting, rec] = await Promise.all([
+  const [tpl, log, setting, sent] = await Promise.all([
     admin.from("email_templates").select("id, subject, body, button_label, button_url"),
     admin
       .from("email_log")
-      .select("to_email, template_id, subject, status, error, sent_by, created_at")
+      .select("to_email, template_id, subject, status, error, sent_by, created_at, provider_id")
       .gte("created_at", new Date(now - 90 * DAY).toISOString())
       .order("created_at", { ascending: false })
       .limit(1000),
     admin.from("admin_settings").select("value").eq("key", "reply_to").maybeSingle(),
-    admin.rpc("admin_recovery_requests", { p_since: new Date(now - 30 * DAY).toISOString() }),
+    // Histórico do próprio Resend (7 dias): mostra também os e-mails de "esqueci minha senha".
+    listSentEmails(now - 7 * DAY),
   ]);
+  const emailLog = (log.data ?? []) as EmailLogRow[];
+  const panelIds = new Set(emailLog.map((l) => l.provider_id).filter(Boolean));
+  const delivery: Record<string, string> = {};
+  for (const e of sent ?? []) if (e.last_event) delivery[e.id] = e.last_event;
   return {
     emailReady: !tpl.error && !log.error,
     savedTemplates: (tpl.data ?? []) as Partial<EmailTemplate>[],
-    emailLog: (log.data ?? []) as EmailLogRow[],
+    emailLog,
     replyTo: setting.data?.value || DEFAULT_REPLY_TO,
-    recoveryReady: !rec.error,
-    recovery: (rec.data ?? []) as RecoveryRow[],
+    recoveryReady: sent !== null,
+    // Tudo que o Resend enviou e não saiu do painel = e-mails do Supabase (recuperação de senha).
+    recovery: (sent ?? [])
+      .filter((e) => !panelIds.has(e.id))
+      .map((e) => ({ created_at: e.created_at, email: e.to[0]?.toLowerCase() ?? null, subject: e.subject, status: e.last_event })),
+    resendTotal24: sent ? sent.filter((e) => new Date(e.created_at).getTime() >= now - DAY).length : null,
+    delivery,
   };
 }
 
@@ -410,7 +430,9 @@ export type RawAdminData = {
   emailLog: EmailLogRow[];
   replyTo: string | null;
   recoveryReady: boolean;
-  recovery: RecoveryRow[];
+  recovery: (RecoveryRow & { status: string | null })[];
+  resendTotal24: number | null;
+  delivery: Record<string, string>;
   checkoutUrl: string | null;
 };
 
@@ -777,8 +799,9 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
   const panel24 = raw.emailLog.filter((l) => l.status === "sent" && new Date(l.created_at).getTime() >= since24).length;
 
   // E-mails de "esqueci minha senha" (Supabase → Resend): também gastam a cota diária.
-  const recDaily: Bar[] = days.map((d) => ({ label: d.label, value: 0 }));
-  const recIdx = new Map(days.map((d, i) => [d.key, i]));
+  const week = days.slice(-7);
+  const recDaily: Bar[] = week.map((d) => ({ label: d.label, value: 0 }));
+  const recIdx = new Map(week.map((d, i) => [d.key, i]));
   const recCount = new Map<string, number>();
   for (const r of raw.recovery) {
     const i = recIdx.get(dayKey(r.created_at));
@@ -789,14 +812,15 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
     ready: raw.recoveryReady,
     last24: raw.recovery.filter((r) => new Date(r.created_at).getTime() >= since24).length,
     last7: raw.recovery.filter((r) => inDays(r.created_at, 7)).length,
-    last30: raw.recovery.length,
+    total24: raw.resendTotal24,
     daily: recDaily,
     list: raw.recovery.map((r) => ({
       email: r.email ?? "—",
       name: (r.email && subByEmail.get(r.email)?.name) ?? null,
       when: fmtDateTime(r.created_at),
       rel: relative(r.created_at, now),
-      ip: r.ip,
+      subject: r.subject,
+      status: r.status,
     })),
     top: [...recCount.entries()]
       .filter(([, n]) => n > 1)
@@ -837,7 +861,8 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
       ready: raw.emailReady,
       configured: emailConfigured(),
       limit: dailyEmailLimit(),
-      sent24: panel24 + recovery.last24,
+      // Com a leitura do Resend, o total é o real (tudo que saiu); sem ela, só o que o painel enviou.
+      sent24: raw.resendTotal24 ?? panel24,
       panel24,
       replyTo: raw.replyTo,
       templates,
@@ -850,6 +875,7 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
         error: l.error,
         by: l.sent_by,
         when: fmtDateTime(l.created_at),
+        delivery: (l.provider_id && raw.delivery[l.provider_id]) || null,
       })),
     },
   };

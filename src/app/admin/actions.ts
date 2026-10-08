@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/admin";
-import { dailyEmailLimit, emailConfigured, renderEmailHtml, sendEmail } from "@/lib/email";
+import { dailyEmailLimit, emailConfigured, forgetSentEmailsCache, listSentEmails, renderEmailHtml, sendEmail } from "@/lib/email";
 import { DEFAULT_REPLY_TO, DEFAULT_TEMPLATES, EMAIL_CHECKOUT_URL, SUPPORT_WHATSAPP, fill, templateVars } from "./email-templates";
 
 // Ações do painel admin. TODAS conferem no servidor se quem chama é admin.
@@ -70,8 +70,9 @@ export async function sendEmailsAction(input: {
     .gte("created_at", since24);
   if (countErr) return { ok: false, error: "Tabelas de e-mail não encontradas. Rode o SQL do painel no Supabase.", ...empty };
   // Os e-mails de "esqueci minha senha" saem pela mesma conta do Resend e gastam a mesma cota.
-  const { data: rec } = await db.rpc("admin_recovery_requests", { p_since: since24 });
-  let remaining = dailyEmailLimit() - (count ?? 0) - (Array.isArray(rec) ? rec.length : 0);
+  // Com a chave de leitura, usa o total real do Resend (painel + senha); senão, só o do painel.
+  const sentAll = await listSentEmails(Date.now() - 86_400_000);
+  let remaining = dailyEmailLimit() - (sentAll ? sentAll.length : (count ?? 0));
 
   // Só envia para e-mails conhecidos (clientes ou quem passou pelo checkout).
   const { data: subs } = await db
@@ -152,6 +153,7 @@ export async function sendEmailsAction(input: {
     await sleep(550); // Resend aceita ~2 envios por segundo
   }
   result.remaining = remaining;
+  if (result.sent.length) forgetSentEmailsCache();
   return result;
 }
 

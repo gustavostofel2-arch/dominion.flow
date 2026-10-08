@@ -402,6 +402,24 @@ function ReplyTo() {
   );
 }
 
+const DELIVERY: Record<string, { label: string; tone: Tone }> = {
+  delivered: { label: "Entregue", tone: "ok" },
+  opened: { label: "Aberto", tone: "info" },
+  clicked: { label: "Clicado", tone: "info" },
+  sent: { label: "Enviado", tone: "mute" },
+  queued: { label: "Na fila", tone: "mute" },
+  scheduled: { label: "Agendado", tone: "mute" },
+  delivery_delayed: { label: "Atrasado", tone: "warn" },
+  bounced: { label: "Devolvido", tone: "bad" },
+  complained: { label: "Marcou spam", tone: "bad" },
+  failed: { label: "Falhou", tone: "bad" },
+  canceled: { label: "Cancelado", tone: "mute" },
+};
+function DeliveryBadge({ status }: { status: string }) {
+  const d = DELIVERY[status] ?? { label: status, tone: "mute" as Tone };
+  return <Badge tone={d.tone}>{d.label}</Badge>;
+}
+
 function RecoveryPanel() {
   const { data, openClient } = useAdmin();
   const r = data.email.recovery;
@@ -413,7 +431,7 @@ function RecoveryPanel() {
       sub="Pedidos de “esqueci minha senha” dos alunos. Cada pedido é um e-mail enviado pelo Resend e gasta a mesma cota."
     >
       {!r.ready ? (
-        <Empty>Rode o SQL do painel no Supabase para ver os pedidos de recuperação de senha.</Empty>
+        <Empty>Cadastre a RESEND_READ_API_KEY (chave “Full access” do Resend) na Vercel para ver os e-mails de senha e o status de entrega.</Empty>
       ) : (
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="space-y-5 lg:col-span-2">
@@ -422,7 +440,7 @@ function RecoveryPanel() {
                 [
                   ["24h", r.last24],
                   ["7 dias", r.last7],
-                  ["30 dias", r.last30],
+                  ["Resend 24h", r.total24 ?? 0],
                 ] as const
               ).map(([l, v]) => (
                 <div key={l} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-center">
@@ -432,7 +450,7 @@ function RecoveryPanel() {
               ))}
             </div>
             <div>
-              <p className="mb-2 text-[12px] text-ink-mute">Pedidos por dia (30 dias)</p>
+              <p className="mb-2 text-[12px] text-ink-mute">Pedidos por dia (7 dias)</p>
               <Columns items={r.daily} every={5} color={C.amber} />
             </div>
             {r.top.length > 0 && (
@@ -451,7 +469,7 @@ function RecoveryPanel() {
           </div>
           <div className="lg:col-span-3">
             {r.list.length === 0 ? (
-              <Empty>Nenhum pedido de recuperação de senha nos últimos 30 dias.</Empty>
+              <Empty>Nenhum e-mail de recuperação de senha nos últimos 7 dias.</Empty>
             ) : (
               <>
                 <Scroll max={420}>
@@ -469,7 +487,10 @@ function RecoveryPanel() {
                             {x.when}
                           </p>
                         </div>
-                        <span className="shrink-0 text-[12px] text-ink-mute">{x.rel}</span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          {x.status && <DeliveryBadge status={x.status} />}
+                          <span className="text-[12px] text-ink-mute">{x.rel}</span>
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -504,7 +525,11 @@ export function TabEmails() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi highlight label="Cota usada (24h)" value={`${e.sent24}/${e.limit}`} color={C.cyan} sub={`${e.panel24} pelo painel · ${e.recovery.last24} de senha · restam ${Math.max(0, e.limit - e.sent24)}`} />
+        <Kpi highlight label="Cota usada (24h)" value={`${e.sent24}/${e.limit}`} color={C.cyan} sub={
+            e.recovery.ready
+              ? `${e.panel24} pelo painel · ${Math.max(0, e.sent24 - e.panel24)} de senha · restam ${Math.max(0, e.limit - e.sent24)}`
+              : `Só os do painel (falta a chave de leitura do Resend) · restam ${Math.max(0, e.limit - e.sent24)}`
+          } />
         <Kpi label="Enviados em 90 dias" value={e.log.filter((l) => l.status === "sent").length} color={C.green} sub="Pelo painel" />
         <Kpi label="Com erro" value={e.log.filter((l) => l.status !== "sent").length} color={C.pink} sub="Veja o motivo no histórico" />
         <Kpi label="Remetente" value={<span className="text-[15px] sm:text-[17px]">dominion@</span>} color={C.violet} sub="mail.dominion-flow.app" />
@@ -553,7 +578,7 @@ export function TabEmails() {
                         {l.error ? ` · ${l.error}` : ""}
                       </p>
                     </div>
-                    <Badge tone={l.status === "sent" ? "ok" : "bad"}>{l.status === "sent" ? "Enviado" : "Erro"}</Badge>
+                    {l.status === "sent" ? l.delivery ? <DeliveryBadge status={l.delivery} /> : <Badge tone="ok">Enviado</Badge> : <Badge tone="bad">Erro</Badge>}
                   </li>
                 ))}
               </ul>

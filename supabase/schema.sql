@@ -603,8 +603,8 @@ revoke all on public.email_templates from anon, authenticated;
 revoke all on public.email_log from anon, authenticated;
 revoke all on public.admin_settings from anon, authenticated;
 
--- Pedidos de "esqueci minha senha" (só leitura do histórico do Supabase Auth). Cada pedido
--- é um e-mail enviado pelo Resend e conta na cota diária. Só o servidor pode chamar.
+-- (Sem uso: este projeto não grava o histórico do Auth no banco. O painel lê os e-mails de
+-- senha direto do Resend, com RESEND_READ_API_KEY. Mantida só por ser inofensiva.)
 create or replace function public.admin_recovery_requests(p_since timestamptz)
 returns table (created_at timestamptz, email text, ip text)
 language sql

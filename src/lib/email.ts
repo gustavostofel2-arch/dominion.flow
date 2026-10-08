@@ -86,3 +86,60 @@ export async function sendEmail({
     return { ok: false, error: e instanceof Error ? e.message : "falha de rede" };
   }
 }
+
+// ---------- Leitura do histórico no Resend (todos os envios: painel + "esqueci minha senha") ----------
+// Listar exige uma chave "Full access" (a de envio não lê). Fica em RESEND_READ_API_KEY.
+
+export type ResendEmail = { id: string; to: string[]; subject: string; created_at: string; last_event: string | null };
+
+export function resendReadConfigured() {
+  return !!process.env.RESEND_READ_API_KEY;
+}
+
+/** "2026-10-07 22:05:12.123+00" → ISO que o JavaScript entende. */
+export function resendDate(s: string) {
+  const iso = s.trim().replace(" ", "T").replace(/([+-]d{2})$/, "$1:00");
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? new Date(s) : d;
+}
+
+let cache: { at: number; since: number; data: ResendEmail[] } | null = null;
+
+/** E-mails enviados desde `sinceMs` (do mais novo para o mais antigo). Guarda 60s em memória. */
+export async function listSentEmails(sinceMs: number, maxPages = 5): Promise<ResendEmail[] | null> {
+  const key = process.env.RESEND_READ_API_KEY;
+  if (!key) return null;
+  if (cache && Date.now() - cache.at < 60_000 && cache.since <= sinceMs) {
+    return cache.data.filter((e) => resendDate(e.created_at).getTime() >= sinceMs);
+  }
+  const out: ResendEmail[] = [];
+  let after: string | null = null;
+  try {
+    for (let page = 0; page < maxPages; page++) {
+      const url = `https://api.resend.com/emails?limit=100${after ? `&after=${encodeURIComponent(after)}` : ""}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` }, cache: "no-store" });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { data?: ResendEmail[]; has_more?: boolean };
+      const rows = json.data ?? [];
+      let reachedOld = false;
+      for (const r of rows) {
+        if (resendDate(r.created_at).getTime() < sinceMs) {
+          reachedOld = true;
+          break;
+        }
+        out.push({ id: r.id, to: r.to ?? [], subject: r.subject ?? "", created_at: resendDate(r.created_at).toISOString(), last_event: r.last_event ?? null });
+      }
+      if (reachedOld || !json.has_more || rows.length === 0) break;
+      after = rows[rows.length - 1].id;
+    }
+  } catch {
+    return null;
+  }
+  cache = { at: Date.now(), since: sinceMs, data: out };
+  return out;
+}
+
+/** Depois de enviar, esquece a lista guardada para os números atualizarem na hora. */
+export function forgetSentEmailsCache() {
+  cache = null;
+}
