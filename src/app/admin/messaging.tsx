@@ -354,7 +354,7 @@ export function ComposeModal({ targets, initialTemplate, onClose }: { targets: R
 
             <div className="border-t border-white/10 bg-black/20 p-5 sm:p-7 lg:border-l lg:border-t-0">
               <p className="mb-2 text-[12px] uppercase tracking-[0.12em] text-ink-mute">Prévia {targets.length > 1 ? `(como ${first.email} vai receber)` : ""}</p>
-              <div className="overflow-hidden rounded-2xl bg-white text-[#18181b]">
+              <div className="overflow-hidden rounded-2xl bg-[#ffffff] text-[#18181b]">
                 <div className="bg-[#070b16] px-5 py-3 text-sm font-bold text-[#eaf2ff]">Dominion</div>
                 <div className="px-5 py-4">
                   <p className="mb-3 text-[13px] font-semibold text-[#6b7280]">Assunto: {fill(draft.subject, vars)}</p>

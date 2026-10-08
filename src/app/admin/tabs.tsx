@@ -8,7 +8,7 @@ import { resetTemplateAction, saveReplyToAction, saveTemplateAction } from "./ac
 import { VARIABLES, fill, templateVars, type EmailTemplate } from "./email-templates";
 import type { AttentionItem } from "./data";
 import { ContactList, useAdmin } from "./messaging";
-import { Badge, Empty, Kpi, Pager, Panel, Scroll, brl, usePager, type Tone } from "./ui-kit";
+import { Badge, Columns, Empty, Kpi, Pager, Panel, Scroll, brl, usePager, type Tone } from "./ui-kit";
 
 // ---------- Dashboard ----------
 
@@ -327,7 +327,7 @@ function TemplateEditor({ t }: { t: EmailTemplate }) {
       </div>
       <div>
         <p className="mb-2 text-[12px] uppercase tracking-[0.12em] text-ink-mute">Prévia (exemplo: Maria Silva)</p>
-        <div className="overflow-hidden rounded-2xl bg-white text-[#18181b]">
+        <div className="overflow-hidden rounded-2xl bg-[#ffffff] text-[#18181b]">
           <div className="bg-[#070b16] px-5 py-3 text-sm font-bold text-[#eaf2ff]">Dominion</div>
           <div className="px-5 py-4">
             <p className="mb-3 text-[13px] font-semibold text-[#6b7280]">Assunto: {fill(d.subject, vars)}</p>
@@ -365,6 +365,88 @@ function ReplyTo() {
   );
 }
 
+function RecoveryPanel() {
+  const { data, openClient } = useAdmin();
+  const r = data.email.recovery;
+  const p = usePager(r.list);
+  const known = new Set(data.clients.map((c) => c.email));
+  return (
+    <Panel
+      title="Recuperação de senha"
+      sub="Pedidos de “esqueci minha senha” dos alunos. Cada pedido é um e-mail enviado pelo Resend e gasta a mesma cota."
+    >
+      {!r.ready ? (
+        <Empty>Rode o SQL do painel no Supabase para ver os pedidos de recuperação de senha.</Empty>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-5">
+          <div className="space-y-5 lg:col-span-2">
+            <div className="grid grid-cols-3 gap-3">
+              {(
+                [
+                  ["24h", r.last24],
+                  ["7 dias", r.last7],
+                  ["30 dias", r.last30],
+                ] as const
+              ).map(([l, v]) => (
+                <div key={l} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-center">
+                  <p className="font-mono text-[22px] font-semibold text-ink">{v}</p>
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-ink-mute">{l}</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="mb-2 text-[12px] text-ink-mute">Pedidos por dia (30 dias)</p>
+              <Columns items={r.daily} every={5} color={C.amber} />
+            </div>
+            {r.top.length > 0 && (
+              <div>
+                <p className="mb-2 text-[12px] text-ink-mute">Pediram mais de uma vez</p>
+                <ul className="space-y-1.5">
+                  {r.top.map((t) => (
+                    <li key={t.email} className="flex items-center justify-between gap-3 text-[13px]">
+                      <span className="truncate text-ink-soft">{t.email}</span>
+                      <Badge tone="warn">{t.count}x</Badge>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <div className="lg:col-span-3">
+            {r.list.length === 0 ? (
+              <Empty>Nenhum pedido de recuperação de senha nos últimos 30 dias.</Empty>
+            ) : (
+              <>
+                <Scroll max={420}>
+                  <ul className="divide-y divide-white/5">
+                    {p.slice.map((x, i) => (
+                      <li
+                        key={i}
+                        onClick={() => known.has(x.email) && openClient(x.email)}
+                        className={`flex items-center justify-between gap-3 py-2.5 ${known.has(x.email) ? "cursor-pointer hover:bg-white/[0.03]" : ""}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink">{x.name || x.email}</p>
+                          <p className="truncate text-[12px] text-ink-mute">
+                            {x.name ? `${x.email} · ` : ""}
+                            {x.when}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[12px] text-ink-mute">{x.rel}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Scroll>
+                <Pager p={p} />
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export function TabEmails() {
   const { data } = useAdmin();
   const [sel, setSel] = useState(data.email.templates[0].id);
@@ -385,11 +467,13 @@ export function TabEmails() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi highlight label="Enviados nas últimas 24h" value={`${e.sent24}/${e.limit}`} color={C.cyan} sub={`Restam ${Math.max(0, e.limit - e.sent24)} hoje (plano grátis do Resend)`} />
+        <Kpi highlight label="Cota usada (24h)" value={`${e.sent24}/${e.limit}`} color={C.cyan} sub={`${e.panel24} pelo painel · ${e.recovery.last24} de senha · restam ${Math.max(0, e.limit - e.sent24)}`} />
         <Kpi label="Enviados em 90 dias" value={e.log.filter((l) => l.status === "sent").length} color={C.green} sub="Pelo painel" />
         <Kpi label="Com erro" value={e.log.filter((l) => l.status !== "sent").length} color={C.pink} sub="Veja o motivo no histórico" />
         <Kpi label="Remetente" value={<span className="text-[15px] sm:text-[17px]">dominion@</span>} color={C.violet} sub="mail.dominion-flow.app" />
       </div>
+
+      <RecoveryPanel />
 
       <Panel title="E-mail para respostas" sub="Quando o cliente clicar em responder, a resposta vai para este e-mail.">
         <ReplyTo />

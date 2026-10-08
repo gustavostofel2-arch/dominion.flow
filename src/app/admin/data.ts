@@ -54,6 +54,7 @@ type EventRow = {
 };
 
 type AuthUser = { id: string; email: string; created_at: string; last_sign_in_at: string | null };
+type RecoveryRow = { created_at: string; email: string | null; ip: string | null };
 type EmailLogRow = { to_email: string; template_id: string | null; subject: string; status: string; error: string | null; sent_by: string; created_at: string };
 
 // ---------- Formatação (feita no servidor para a tela não "piscar") ----------
@@ -306,9 +307,20 @@ export type AdminData = {
     ready: boolean;
     configured: boolean;
     limit: number;
+    /** Total na cota das últimas 24h: painel + recuperação de senha. */
     sent24: number;
+    panel24: number;
     replyTo: string | null;
     templates: EmailTemplate[];
+    recovery: {
+      ready: boolean;
+      last24: number;
+      last7: number;
+      last30: number;
+      daily: Bar[];
+      list: { email: string; name: string | null; when: string | null; rel: string | null; ip: string | null }[];
+      top: { email: string; count: number }[];
+    };
     log: { to: string; template: string | null; subject: string; status: string; error: string | null; by: string; when: string | null }[];
   };
 };
@@ -366,7 +378,7 @@ export async function loadAdminData(): Promise<AdminData> {
 }
 
 async function loadEmailPart(admin: ReturnType<typeof createAdminClient>, now: number) {
-  const [tpl, log, setting] = await Promise.all([
+  const [tpl, log, setting, rec] = await Promise.all([
     admin.from("email_templates").select("id, subject, body, button_label, button_url"),
     admin
       .from("email_log")
@@ -375,12 +387,15 @@ async function loadEmailPart(admin: ReturnType<typeof createAdminClient>, now: n
       .order("created_at", { ascending: false })
       .limit(1000),
     admin.from("admin_settings").select("value").eq("key", "reply_to").maybeSingle(),
+    admin.rpc("admin_recovery_requests", { p_since: new Date(now - 30 * DAY).toISOString() }),
   ]);
   return {
     emailReady: !tpl.error && !log.error,
     savedTemplates: (tpl.data ?? []) as Partial<EmailTemplate>[],
     emailLog: (log.data ?? []) as EmailLogRow[],
     replyTo: setting.data?.value ?? null,
+    recoveryReady: !rec.error,
+    recovery: (rec.data ?? []) as RecoveryRow[],
   };
 }
 
@@ -394,6 +409,8 @@ export type RawAdminData = {
   savedTemplates: Partial<EmailTemplate>[];
   emailLog: EmailLogRow[];
   replyTo: string | null;
+  recoveryReady: boolean;
+  recovery: RecoveryRow[];
   checkoutUrl: string | null;
 };
 
@@ -757,6 +774,37 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
   };
 
   const since24 = now - DAY;
+  const panel24 = raw.emailLog.filter((l) => l.status === "sent" && new Date(l.created_at).getTime() >= since24).length;
+
+  // E-mails de "esqueci minha senha" (Supabase → Resend): também gastam a cota diária.
+  const recDaily: Bar[] = days.map((d) => ({ label: d.label, value: 0 }));
+  const recIdx = new Map(days.map((d, i) => [d.key, i]));
+  const recCount = new Map<string, number>();
+  for (const r of raw.recovery) {
+    const i = recIdx.get(dayKey(r.created_at));
+    if (i !== undefined) recDaily[i].value++;
+    if (r.email) recCount.set(r.email, (recCount.get(r.email) ?? 0) + 1);
+  }
+  const recovery = {
+    ready: raw.recoveryReady,
+    last24: raw.recovery.filter((r) => new Date(r.created_at).getTime() >= since24).length,
+    last7: raw.recovery.filter((r) => inDays(r.created_at, 7)).length,
+    last30: raw.recovery.length,
+    daily: recDaily,
+    list: raw.recovery.map((r) => ({
+      email: r.email ?? "—",
+      name: (r.email && subByEmail.get(r.email)?.name) ?? null,
+      when: fmtDateTime(r.created_at),
+      rel: relative(r.created_at, now),
+      ip: r.ip,
+    })),
+    top: [...recCount.entries()]
+      .filter(([, n]) => n > 1)
+      .map(([email, count]) => ({ email, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10),
+  };
+
   return {
     generatedAt: fmtDateTime(new Date(now).toISOString())!,
     checkoutUrl: raw.checkoutUrl,
@@ -789,9 +837,11 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
       ready: raw.emailReady,
       configured: emailConfigured(),
       limit: dailyEmailLimit(),
-      sent24: raw.emailLog.filter((l) => l.status === "sent" && new Date(l.created_at).getTime() >= since24).length,
+      sent24: panel24 + recovery.last24,
+      panel24,
       replyTo: raw.replyTo,
       templates,
+      recovery,
       log: raw.emailLog.map((l) => ({
         to: l.to_email,
         template: (l.template_id && templateName.get(l.template_id)) || l.template_id,

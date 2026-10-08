@@ -69,7 +69,9 @@ export async function sendEmailsAction(input: {
     .eq("status", "sent")
     .gte("created_at", since24);
   if (countErr) return { ok: false, error: "Tabelas de e-mail não encontradas. Rode o SQL do painel no Supabase.", ...empty };
-  let remaining = dailyEmailLimit() - (count ?? 0);
+  // Os e-mails de "esqueci minha senha" saem pela mesma conta do Resend e gastam a mesma cota.
+  const { data: rec } = await db.rpc("admin_recovery_requests", { p_since: since24 });
+  let remaining = dailyEmailLimit() - (count ?? 0) - (Array.isArray(rec) ? rec.length : 0);
 
   // Só envia para e-mails conhecidos (clientes ou quem passou pelo checkout).
   const { data: subs } = await db

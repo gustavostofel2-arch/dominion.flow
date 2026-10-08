@@ -603,6 +603,26 @@ revoke all on public.email_templates from anon, authenticated;
 revoke all on public.email_log from anon, authenticated;
 revoke all on public.admin_settings from anon, authenticated;
 
+-- Pedidos de "esqueci minha senha" (só leitura do histórico do Supabase Auth). Cada pedido
+-- é um e-mail enviado pelo Resend e conta na cota diária. Só o servidor pode chamar.
+create or replace function public.admin_recovery_requests(p_since timestamptz)
+returns table (created_at timestamptz, email text, ip text)
+language sql
+security definer
+set search_path = ''
+as $$
+  select a.created_at,
+         lower(coalesce(a.payload->>'actor_username', a.payload->'traits'->>'user_email')) as email,
+         a.ip_address::text
+    from auth.audit_log_entries a
+   where a.payload->>'action' = 'user_recovery_requested'
+     and a.created_at >= p_since
+   order by a.created_at desc
+   limit 2000;
+$$;
+revoke all on function public.admin_recovery_requests(timestamptz) from public, anon, authenticated;
+grant execute on function public.admin_recovery_requests(timestamptz) to service_role;
+
 
 -- =====================================================================
 -- COMANDOS ÚTEIS DO DIA A DIA (não rode junto — copie quando precisar)

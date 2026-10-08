@@ -56,6 +56,13 @@ function match(c: ClientRow, f: FilterId) {
   }
 }
 
+/** Modelo sugerido para quem foi marcado: se todos estão na mesma situação, já abre o modelo certo. */
+function suggestTemplate(list: ClientRow[]) {
+  if (list.length && list.every((c) => c.active && !c.hasAccount)) return "primeiro-acesso";
+  if (list.length && list.every((c) => c.active && c.hasAccount && !c.everUsed)) return "nunca-ativou";
+  return "livre";
+}
+
 function csvCell(v: unknown) {
   const s = v === null || v === undefined ? "" : String(v);
   return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -201,7 +208,7 @@ function ClientsTable({ rows }: { rows: ClientRow[] }) {
           <button
             type="button"
             disabled={chosen.length === 0}
-            onClick={() => openCompose(chosen.map((c) => ({ email: c.email, name: c.name, plan: c.plan, renewal: c.renewal })), "livre")}
+            onClick={() => openCompose(chosen.map((c) => ({ email: c.email, name: c.name, plan: c.plan, renewal: c.renewal })), suggestTemplate(chosen))}
             className="inline-flex h-8 items-center rounded-lg bg-[#ff2d55] px-3 text-xs font-semibold text-white transition hover:bg-[#e91e48] disabled:cursor-not-allowed disabled:opacity-40"
           >
             ✉ Enviar e-mail para {chosen.length || "…"}
@@ -345,7 +352,7 @@ export default function TabClients() {
         <Kpi label="Reembolsos" value={s.refunded + s.chargebacks} color={C.pink} sub={`${s.refunded} reembolsos · ${s.chargebacks} chargebacks · ${pct(s.refunded + s.chargebacks, s.lastlinkBuyers)} dos compradores`} />
         <Kpi label="Cancelados" value={s.canceled} color={C.violet} sub="Cancelaram a assinatura (com ou sem acesso ainda)" />
         <Kpi label="Pix × Cartão" value={`${s.pix} × ${s.card}`} color={C.blue} sub={`${s.cardInstallments} parcelaram no cartão`} />
-        <Kpi label="Tempo médio de casa" value={s.avgTenureDays === null ? "—" : `${s.avgTenureDays}d`} color={C.amber} sub="Clientes ativos da Lastlink" />
+        <Kpi label="Tempo médio como cliente" value={s.avgTenureDays === null ? "—" : `${s.avgTenureDays} dia${s.avgTenureDays === 1 ? "" : "s"}`} color={C.amber} sub="Média de dias desde a compra (clientes ativos da Lastlink)" />
         <Kpi label="Primeiro acesso pendente" value={data.kpis.pending} color={C.amber} sub="Veja na aba Ativação" />
         <Kpi label="Nunca geraram token" value={data.kpis.neverUsed} color={C.pink} sub="Veja na aba Ativação" />
       </div>
