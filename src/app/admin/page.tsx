@@ -6,6 +6,8 @@ import AdminView from "./admin-view";
 import { loadAdminData } from "./data";
 
 export const dynamic = "force-dynamic";
+// Envio de e-mails em lote (até 40, ~2 por segundo) precisa de mais tempo que o padrão.
+export const maxDuration = 60;
 // Mesmo título das outras telas (a aba do navegador não revela o painel) e fora do Google.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 

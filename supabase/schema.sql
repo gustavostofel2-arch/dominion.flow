@@ -563,6 +563,48 @@ grant execute on function public.process_lastlink_event(jsonb, jsonb) to service
 
 
 -- =====================================================================
+-- PAINEL ADMIN: modelos de e-mail, histórico de envios e configurações.
+-- Só o servidor (service_role) lê e grava; clientes não têm acesso.
+-- =====================================================================
+create table if not exists public.email_templates (
+  id           text primary key,          -- ex.: primeiro-acesso, nunca-ativou
+  subject      text not null,
+  body         text not null,
+  button_label text,
+  button_url   text,
+  updated_at   timestamptz not null default now(),
+  updated_by   text
+);
+
+create table if not exists public.email_log (
+  id          bigint generated always as identity primary key,
+  to_email    text not null,
+  template_id text,
+  subject     text not null,
+  status      text not null check (status in ('sent', 'error')),
+  provider_id text,
+  error       text,
+  sent_by     text not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists email_log_to_email_idx on public.email_log (to_email, created_at desc);
+create index if not exists email_log_created_idx on public.email_log (created_at desc);
+
+create table if not exists public.admin_settings (
+  key        text primary key,              -- ex.: reply_to
+  value      text,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.email_templates enable row level security;
+alter table public.email_log enable row level security;
+alter table public.admin_settings enable row level security;
+revoke all on public.email_templates from anon, authenticated;
+revoke all on public.email_log from anon, authenticated;
+revoke all on public.admin_settings from anon, authenticated;
+
+
+-- =====================================================================
 -- COMANDOS ÚTEIS DO DIA A DIA (não rode junto — copie quando precisar)
 -- =====================================================================
 

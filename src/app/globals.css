@@ -457,3 +457,13 @@ body {
   .theme-dark .dk-tab,
   .theme-dark .dk-copy-btn { transition: none; }
 }
+
+/* ---------- Painel admin: muitos cartões na tela; sem desfoque (pesado para a placa de vídeo) ---------- */
+.theme-dark.admin-lite .card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: linear-gradient(160deg, rgba(22, 31, 54, 0.94) 0%, rgba(11, 18, 34, 0.94) 55%, rgba(16, 28, 64, 0.94) 100%);
+}
+.theme-dark.admin-lite .card-strong {
+  background: linear-gradient(160deg, rgba(28, 39, 66, 0.97) 0%, rgba(14, 22, 42, 0.97) 55%, rgba(20, 36, 82, 0.97) 100%);
+}
