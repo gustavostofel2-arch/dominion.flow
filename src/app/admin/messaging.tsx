@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckIcon, CopyIcon } from "@/components/ui";
 import { sendEmailsAction, type SendResult } from "./actions";
 import { fill, templateVars, whatsappText, type EmailTemplate, type Recipient } from "./email-templates";
-import type { AdminData, ContactRow } from "./data";
+import type { AdminData, ContactRow, ResendView } from "./data";
 import { Badge, Checkbox, Empty, Pager, Scroll, useConfirm, usePager } from "./ui-kit";
 
 // Mensagens do painel: janela de e-mail (modelo + prévia), botões de WhatsApp/copiar
@@ -13,6 +13,12 @@ import { Badge, Checkbox, Empty, Pager, Scroll, useConfirm, usePager } from "./u
 
 type Ctx = {
   data: AdminData;
+  /** Dados do Resend (null até carregar). */
+  resend: ResendView | null;
+  resendState: "idle" | "loading" | "error" | "missing";
+  loadResend: () => void;
+  /** E-mails gastos nas últimas 24h: total real do Resend, ou só os do painel enquanto não carregou. */
+  sent24: number;
   openCompose: (targets: Recipient[], templateId: string) => void;
   openClient: (email: string) => void;
 };
@@ -212,7 +218,7 @@ export function ContactList({ rows, templateId, empty }: { rows: ContactRow[]; t
 // ---------- Janela de envio de e-mail ----------
 
 export function ComposeModal({ targets, initialTemplate, onClose }: { targets: Recipient[]; initialTemplate: string; onClose: () => void }) {
-  const { data } = useAdmin();
+  const { data, sent24 } = useAdmin();
   const router = useRouter();
   const templates = data.email.templates;
   const start = templates.find((t) => t.id === initialTemplate) ?? templates[0];
@@ -223,7 +229,7 @@ export function ComposeModal({ targets, initialTemplate, onClose }: { targets: R
   const [result, setResult] = useState<SendResult | null>(null);
   const [confirm, confirmEl] = useConfirm();
 
-  const remaining = data.email.limit - data.email.sent24;
+  const remaining = data.email.limit - sent24;
   const first = targets[0];
   const vars = templateVars(first, data.checkoutUrl);
   const blocked = !data.email.ready ? "Rode o SQL do painel no Supabase para liberar os e-mails." : !data.email.configured ? "Falta cadastrar a RESEND_API_KEY na Vercel." : targets.length > remaining ? `Você só pode enviar mais ${Math.max(0, remaining)} e-mail(s) nas próximas 24h.` : targets.length > 40 ? "Máximo de 40 por envio." : null;
@@ -395,7 +401,7 @@ export function ComposeModal({ targets, initialTemplate, onClose }: { targets: R
         {!result && (
           <div className="flex flex-col gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
             <p className={`text-[13px] ${blocked ? "text-[#ff8fa3]" : "text-ink-mute"}`}>
-              {blocked ?? `${data.email.sent24} de ${data.email.limit} e-mails usados nas últimas 24h${data.email.replyTo ? ` · respostas vão para ${data.email.replyTo}` : " · defina o e-mail de resposta na aba E-mails"}`}
+              {blocked ?? `${sent24} de ${data.email.limit} e-mails usados nas últimas 24h${data.email.replyTo ? ` · respostas vão para ${data.email.replyTo}` : " · defina o e-mail de resposta na aba E-mails"}`}
             </p>
             <button
               type="button"

@@ -7,7 +7,8 @@ import { Brand, Footer } from "@/components/ui";
 import SignOutButton from "../dashboard/sign-out-button";
 import ClientDrawer from "./client-drawer";
 import type { Recipient } from "./email-templates";
-import type { AdminData } from "./data";
+import type { AdminData, ResendView } from "./data";
+import { getResendViewAction } from "./actions";
 import { AdminCtx, ComposeModal } from "./messaging";
 import TabClients from "./tab-clients";
 import { TabActivation, TabDashboard, TabEmails, TabLastlink, TabUsage } from "./tabs";
@@ -72,20 +73,15 @@ export default function AdminView({ data }: { data: AdminData }) {
   // Busca os dados de novo no servidor sem recarregar a página (uma requisição só).
   const refresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
 
-  // Atualiza sozinho a cada 1 minuto enquanto a aba do navegador estiver visível
-  // e nenhuma janela (e-mail, ficha) estiver aberta.
+  // Atualiza sozinho a cada 5 minutos enquanto a aba do navegador estiver visível e nenhuma
+  // janela (e-mail, ficha) estiver aberta. Só lê o Supabase: o Resend é só pelo botão.
   const busy = !!compose || !!clientEmail;
   useEffect(() => {
     if (busy) return;
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") refresh();
-    }, 60_000);
-    const onVisible = () => document.visibilityState === "visible" && refresh();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
+    }, 5 * 60_000);
+    return () => window.clearInterval(id);
   }, [busy, refresh]);
 
   // A aba fica no endereço (#clientes etc.) para voltar nela ao atualizar a página.
@@ -106,13 +102,34 @@ export default function AdminView({ data }: { data: AdminData }) {
     window.scrollTo({ top: 0 });
   }, []);
 
+  // Resend: só quando o admin pede (abrir a aba E-mails pela 1ª vez ou clicar em atualizar).
+  const [resend, setResend] = useState<ResendView | null>(null);
+  const [resendState, setResendState] = useState<"idle" | "loading" | "error" | "missing">("idle");
+  const loadResend = useCallback(() => {
+    if (!data.email.readConfigured) {
+      setResendState("missing");
+      return;
+    }
+    setResendState("loading");
+    getResendViewAction()
+      .then((r) => {
+        setResend(r);
+        setResendState(r ? "idle" : "error");
+      })
+      .catch(() => setResendState("error"));
+  }, [data.email.readConfigured]);
+
   const ctx = useMemo(
     () => ({
       data,
+      resend,
+      resendState,
+      loadResend,
+      sent24: resend ? resend.total24 : data.email.panel24,
       openCompose: (targets: Recipient[], template: string) => setCompose({ targets, template }),
       openClient: (e: string) => setClientEmail(e),
     }),
-    [data],
+    [data, resend, resendState, loadResend],
   );
   const client = clientEmail ? data.clients.find((c) => c.email === clientEmail) : undefined;
   const badge: Partial<Record<TabId, number>> = { ativacao: data.kpis.pending + data.kpis.neverUsed };
@@ -210,7 +227,7 @@ export default function AdminView({ data }: { data: AdminData }) {
             <div className="flex items-center gap-3 text-sm text-ink-mute">
               <span className="dk-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5">
                 <span className="dk-pulse" />
-                {refreshing ? "Atualizando…" : `Atualizado ${data.generatedAt} · automático a cada 1 min`}
+                {refreshing ? "Atualizando…" : `Atualizado ${data.generatedAt} · automático a cada 5 min`}
               </span>
               <button type="button" onClick={refresh} disabled={refreshing} className="btn-ghost disabled:opacity-60">
                 {refreshing ? "Atualizando…" : "Atualizar"}

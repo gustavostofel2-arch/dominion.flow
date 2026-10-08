@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/admin";
 import { dailyEmailLimit, emailConfigured, forgetSentEmailsCache, listSentEmails, renderEmailHtml, sendEmail } from "@/lib/email";
+import { loadResendView, type ResendView } from "./data";
 import { DEFAULT_REPLY_TO, DEFAULT_TEMPLATES, EMAIL_CHECKOUT_URL, SUPPORT_WHATSAPP, fill, templateVars } from "./email-templates";
 
 // Ações do painel admin. TODAS conferem no servidor se quem chama é admin.
@@ -276,4 +277,11 @@ export async function getClientDetailAction(emailRaw: string, userId: string | n
       by: m.sent_by,
     })),
   };
+}
+
+// ---------- Resend (só quando o admin pede: abrir a aba E-mails ou clicar em atualizar) ----------
+
+export async function getResendViewAction(): Promise<ResendView | null> {
+  await requireAdmin();
+  return loadResendView();
 }

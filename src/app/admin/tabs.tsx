@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AreaLine, C, Donut, Funnel, StackedBars } from "./charts";
 import { eventLabel, resultOf } from "./client-drawer";
@@ -420,18 +420,36 @@ function DeliveryBadge({ status }: { status: string }) {
   return <Badge tone={d.tone}>{d.label}</Badge>;
 }
 
+function ResendButton() {
+  const { resend, resendState, loadResend } = useAdmin();
+  return (
+    <div className="flex items-center gap-2">
+      {resend && <span className="hidden text-[12px] text-ink-mute sm:inline">lido {resend.loadedAt}</span>}
+      <button type="button" onClick={loadResend} disabled={resendState === "loading"} className="btn-ghost !h-9 text-xs disabled:opacity-60">
+        {resendState === "loading" ? "Lendo…" : "↻ Atualizar Resend"}
+      </button>
+    </div>
+  );
+}
+
 function RecoveryPanel() {
-  const { data, openClient } = useAdmin();
-  const r = data.email.recovery;
-  const p = usePager(r.list);
+  const { data, openClient, resend, resendState } = useAdmin();
+  const list = resend?.list ?? [];
+  const p = usePager(list);
   const known = new Set(data.clients.map((c) => c.email));
+  const r = resend;
   return (
     <Panel
       title="Histórico · Recuperação de senha"
-      sub="E-mails de “esqueci minha senha” (enviados pelo Supabase). Gastam a mesma cota."
+      sub="E-mails de “esqueci minha senha” (enviados pelo Supabase). Gastam a mesma cota. Lidos do Resend só quando você pede."
+      right={<ResendButton />}
     >
-      {!r.ready ? (
+      {resendState === "missing" || !data.email.readConfigured ? (
         <Empty>Cadastre a RESEND_READ_API_KEY (chave “Full access” do Resend) na Vercel para ver os e-mails de senha e o status de entrega.</Empty>
+      ) : resendState === "error" ? (
+        <Empty>Não consegui ler o Resend agora. Tente “Atualizar Resend” de novo em instantes.</Empty>
+      ) : !r ? (
+        <Empty>{resendState === "loading" ? "Lendo o Resend…" : "Clique em “Atualizar Resend” para carregar."}</Empty>
       ) : (
         <div className="space-y-5">
           <div className="space-y-5">
@@ -440,7 +458,7 @@ function RecoveryPanel() {
                 [
                   ["24h", r.last24],
                   ["7 dias", r.last7],
-                  ["Resend 24h", r.total24 ?? 0],
+                  ["Resend 24h", r.total24],
                 ] as const
               ).map(([l, v]) => (
                 <div key={l} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-center">
@@ -468,7 +486,7 @@ function RecoveryPanel() {
             )}
           </div>
           <div>
-            {r.list.length === 0 ? (
+            {list.length === 0 ? (
               <Empty>Nenhum e-mail de recuperação de senha nos últimos 7 dias.</Empty>
             ) : (
               <>
@@ -506,7 +524,7 @@ function RecoveryPanel() {
 }
 
 function SentHistoryPanel() {
-  const { data } = useAdmin();
+  const { data, resend } = useAdmin();
   const e = data.email;
   const p = usePager(e.log);
   return (
@@ -529,7 +547,7 @@ function SentHistoryPanel() {
                       {l.error ? ` · ${l.error}` : ""}
                     </p>
                   </div>
-                  {l.status === "sent" ? l.delivery ? <DeliveryBadge status={l.delivery} /> : <Badge tone="ok">Enviado</Badge> : <Badge tone="bad">Erro</Badge>}
+                  {l.status !== "sent" ? <Badge tone="bad">Erro</Badge> : l.providerId && resend?.delivery[l.providerId] ? <DeliveryBadge status={resend.delivery[l.providerId]} /> : <Badge tone="ok">Enviado</Badge>}
                 </li>
               ))}
             </ul>
@@ -542,7 +560,12 @@ function SentHistoryPanel() {
 }
 
 export function TabEmails() {
-  const { data } = useAdmin();
+  const { data, resend, resendState, loadResend, sent24 } = useAdmin();
+  // Lê o Resend uma vez ao abrir a aba; depois, só pelo botão.
+  useEffect(() => {
+    if (!resend && resendState === "idle") loadResend();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sel, setSel] = useState(data.email.templates[0].id);
   const t = data.email.templates.find((x) => x.id === sel)!;
   const e = data.email;
@@ -560,10 +583,10 @@ export function TabEmails() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Kpi highlight label="Cota usada (24h)" value={`${e.sent24}/${e.limit}`} color={C.cyan} sub={
-            e.recovery.ready
-              ? `${e.panel24} pelo painel · ${Math.max(0, e.sent24 - e.panel24)} de senha · restam ${Math.max(0, e.limit - e.sent24)}`
-              : `Só os do painel (falta a chave de leitura do Resend) · restam ${Math.max(0, e.limit - e.sent24)}`
+        <Kpi highlight label="Cota usada (24h)" value={`${sent24}/${e.limit}`} color={C.cyan} sub={
+            resend
+              ? `${e.panel24} pelo painel · ${Math.max(0, sent24 - e.panel24)} de senha · restam ${Math.max(0, e.limit - sent24)}`
+              : `Só os do painel até ler o Resend · restam ${Math.max(0, e.limit - sent24)}`
           } />
         <Kpi label="Enviados em 90 dias" value={e.log.filter((l) => l.status === "sent").length} color={C.green} sub="Pelo painel" />
         <Kpi label="Com erro" value={e.log.filter((l) => l.status !== "sent").length} color={C.pink} sub="Veja o motivo no histórico" />
