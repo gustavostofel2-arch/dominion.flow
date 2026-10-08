@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Brand, Footer } from "@/components/ui";
 import SignOutButton from "../dashboard/sign-out-button";
 import ClientDrawer from "./client-drawer";
@@ -36,6 +37,26 @@ export default function AdminView({ email, data }: { email: string; data: AdminD
   const [tab, setTab] = useState<TabId>("dashboard");
   const [compose, setCompose] = useState<{ targets: Recipient[]; template: string } | null>(null);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  // Busca os dados de novo no servidor sem recarregar a página (uma requisição só).
+  const refresh = useCallback(() => startRefresh(() => router.refresh()), [router]);
+
+  // Atualiza sozinho a cada 1 minuto enquanto a aba do navegador estiver visível
+  // e nenhuma janela (e-mail, ficha) estiver aberta.
+  const busy = !!compose || !!clientEmail;
+  useEffect(() => {
+    if (busy) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 60_000);
+    const onVisible = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [busy, refresh]);
 
   // A aba fica no endereço (#clientes etc.) para voltar nela ao atualizar a página.
   useEffect(() => {
@@ -118,11 +139,11 @@ export default function AdminView({ email, data }: { email: string; data: AdminD
             <div className="flex items-center gap-3 text-sm text-ink-mute">
               <span className="dk-pill inline-flex items-center gap-2 rounded-full px-3 py-1.5">
                 <span className="dk-pulse" />
-                Atualizado {data.generatedAt}
+                {refreshing ? "Atualizando…" : `Atualizado ${data.generatedAt} · automático a cada 1 min`}
               </span>
-              <a href={`/admin#${tab}`} onClick={() => window.location.reload()} className="btn-ghost">
-                Atualizar
-              </a>
+              <button type="button" onClick={refresh} disabled={refreshing} className="btn-ghost disabled:opacity-60">
+                {refreshing ? "Atualizando…" : "Atualizar"}
+              </button>
             </div>
           </div>
 
