@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AreaLine, C, Donut, Funnel, StackedBars } from "./charts";
+import { AreaLine, C, Donut, Funnel } from "./charts";
+import PeriodSection from "./period";
 import { eventLabel, resultOf } from "./client-drawer";
 import { resetTemplateAction, saveReplyToAction, saveTemplateAction } from "./actions";
 import { DEFAULT_TEMPLATES, VARIABLES, fill, templateVars, type EmailTemplate } from "./email-templates";
@@ -42,38 +43,35 @@ export function TabDashboard({ go }: { go: (tab: string) => void }) {
   const k = data.kpis;
   return (
     <div className="space-y-4">
+      <PeriodSection />
+
+      <div className="pt-6">
+        <p className="eyebrow">Agora</p>
+        <h2 className="mt-2 text-[26px] font-semibold tracking-[-0.03em]">Situação atual</h2>
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Kpi highlight label="Clientes ativos" value={k.active} color={C.green} sub={`${k.activeLastlink} Lastlink · ${k.activeManual} manuais`} />
-        <Kpi highlight label="Faturamento 30 dias" value={brl(k.revenue30)} color={C.cyan} sub={`Hoje: ${brl(k.revenueToday)} · preço da oferta, sem juros e sem reembolsos`} />
-        <Kpi label="Vendas novas 30 dias" value={k.newSales30} color={C.blue} sub={`Hoje ${k.newSalesToday} · 7 dias ${k.newSales7} · ${k.renewals30} renovações · sem reembolsadas`} />
-        <Kpi label="Reembolsos 30 dias" value={k.refunds30 + k.chargebacks30} color={C.pink} sub={`${brl(k.refundsAmount30)} · ${k.chargebacks30} chargeback${k.chargebacks30 === 1 ? "" : "s"}`} />
         <button type="button" onClick={() => go("ativacao")} className="text-left">
           <Kpi label="Primeiro acesso pendente" value={<span className={k.pending ? "text-[#ffb547]" : ""}>{k.pending}</span>} color={C.amber} sub="Pagaram e não criaram a conta →" />
         </button>
         <button type="button" onClick={() => go("ativacao")} className="text-left">
           <Kpi label="Nunca geraram token" value={<span className={k.neverUsed ? "text-[#ffb547]" : ""}>{k.neverUsed}</span>} color={C.pink} sub="Criaram a conta e não ativaram →" />
         </button>
-        <Kpi label="Ativações 7 dias" value={k.activations7} color={C.violet} sub={`Hoje ${k.activationsToday} · ${k.activeUsers7} pessoas usando`} />
         <Kpi label="Cancelamentos agendados" value={k.cancelScheduled} color={C.violet} sub="Cancelaram, mas ainda têm acesso" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Panel className="lg:col-span-3" title="Vendas por dia" sub="Últimos 30 dias · passe o mouse nas barras para ver o valor do dia">
-          <StackedBars data={data.salesDaily} aLabel="Vendas novas" bLabel="Renovações" money />
-        </Panel>
-        <Panel className="lg:col-span-2" title="Clientes ativos por plano">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="Clientes ativos por plano">
           <Donut items={data.byPlan} total={k.active} caption="ativos" />
         </Panel>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Panel className="lg:col-span-3" title="Uso da ferramenta" sub="Tokens gerados por dia e quantas pessoas usaram (30 dias)">
-          <AreaLine data={data.usageDaily} aLabel="Ativações" bLabel="Pessoas" />
-        </Panel>
-        <Panel className="lg:col-span-2" title="Funil de ativação" sub="Quem paga, cria a conta e usa de fato">
+        <Panel title="Funil de ativação" sub="Quem paga, cria a conta e usa de fato">
           <Funnel steps={data.funnel} />
         </Panel>
       </div>
+
+      <Panel title="Uso da ferramenta" sub="Tokens gerados por dia e quantas pessoas usaram (últimos 30 dias)">
+        <AreaLine data={data.usageDaily} aLabel="Ativações" bLabel="Pessoas" />
+      </Panel>
 
       <div className="pt-6">
         <p className="eyebrow">Acompanhamento</p>

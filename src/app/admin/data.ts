@@ -253,6 +253,17 @@ export type DayPoint = { key: string; label: string; a: number; b: number; amoun
 
 export type Bar = { label: string; value: number };
 
+/** Um lançamento do livro de vendas (para os filtros de data da tela). */
+export type LedgerItem = {
+  /** Dia no horário de Brasília (AAAA-MM-DD). */
+  day: string;
+  kind: "sale" | "renewal" | "refund" | "chargeback";
+  /** Preço da oferta (sem juros do cartão). */
+  value: number;
+  offer: string | null;
+  method: string | null;
+};
+
 export type AdminData = {
   generatedAt: string;
   checkoutUrl: string | null;
@@ -281,6 +292,16 @@ export type AdminData = {
   funnel: { label: string; value: number }[];
   salesDaily: DayPoint[];
   usageDaily: DayPoint[];
+  /** Livro de vendas do último ano + ativações e contas por dia: a tela filtra por período. */
+  ledger: {
+    todayKey: string;
+    /** Primeiro dia com dados de vendas (1 ano) e de uso (90 dias). */
+    salesFrom: string;
+    usageFrom: string;
+    items: LedgerItem[];
+    activations: Record<string, number>;
+    accounts: Record<string, number>;
+  };
   pending: ContactRow[];
   neverUsed: ContactRow[];
   renewSoon: AttentionItem[];
@@ -821,6 +842,39 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
       .map((c) => ({ email: c.email, name: c.name, plan: c.plan, since: c.since, days: c.sinceDays, active: c.active })),
   };
 
+  // ----- Livro de vendas (filtros de data na tela) -----
+  const ledgerItems: LedgerItem[] = [
+    ...sales.map((e) => ({ e, kind: "sale" as const })),
+    ...renewals.map((e) => ({ e, kind: "renewal" as const })),
+    ...refunds.map((e) => ({ e, kind: "refund" as const })),
+    ...chargebacks.map((e) => ({ e, kind: "chargeback" as const })),
+  ].map(({ e, kind }) => ({
+    day: dayKey(e.received_at),
+    kind,
+    value: valueOf(e) ?? 0,
+    offer: e.offer,
+    method: e.method ? (METHOD_LABEL[e.method] ?? e.method) : null,
+  }));
+  const activationsByDay: Record<string, number> = {};
+  for (const l of logs) {
+    const k = dayKey(l.created_at);
+    activationsByDay[k] = (activationsByDay[k] ?? 0) + 1;
+  }
+  const accountsByDay: Record<string, number> = {};
+  for (const u of users) {
+    if (internal.has(u.email)) continue;
+    const k = dayKey(u.created_at);
+    accountsByDay[k] = (accountsByDay[k] ?? 0) + 1;
+  }
+  const ledger = {
+    todayKey: today,
+    salesFrom: dayKey(new Date(now - 364 * DAY)),
+    usageFrom: dayKey(new Date(now - 89 * DAY)),
+    items: ledgerItems,
+    activations: activationsByDay,
+    accounts: accountsByDay,
+  };
+
   const kpis = {
     active: activeClients.length,
     activeLastlink: activeClients.filter((c) => c.source === "Lastlink").length,
@@ -854,6 +908,7 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
     funnel,
     salesDaily,
     usageDaily,
+    ledger,
     pending,
     neverUsed,
     renewSoon,
