@@ -441,9 +441,11 @@ begin
         v_base := v_next;
       end if;
       -- Vitalício: oferta declarada em LASTLINK_LIFETIME_OFFER_IDS (o jeito confiável: o aviso
-      -- real de "Cobrança única" vem COM bloco de assinatura e sem próxima cobrança), ou aviso
-      -- sem próxima cobrança e sem assinatura.
+      -- real de "Cobrança única" vem COM bloco de assinatura e sem próxima cobrança), oferta com
+      -- "vitalício" no nome (ex.: "Acesso | VITALICIO [mentorados]", criada depois sem cadastrar
+      -- o Id), ou aviso sem próxima cobrança e sem assinatura.
       v_lifetime := coalesce((v_data#>>'{Offer,Id}') = any (v_lifetime_offers), false)
+                    or coalesce((v_data#>>'{Offer,Name}') ~* 'vital[iíÍ]cio', false)
                     or (v_nb_raw is null and v_sub_id is null);
 
       if v_lifetime then
