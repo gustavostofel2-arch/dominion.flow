@@ -23,7 +23,7 @@ export type DashboardViewProps = {
   showAdmin?: boolean;
 };
 
-/** Ilustração do Dominion Flow: três nodes ligados por curvas. */
+/** Ilustração do Flow Turbo: três nodes ligados por curvas. */
 function FlowArt() {
   return (
     <svg viewBox="0 0 320 120" className="h-full w-full" aria-hidden="true">

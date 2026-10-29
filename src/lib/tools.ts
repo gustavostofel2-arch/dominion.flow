@@ -11,12 +11,12 @@ export type Tool = {
 export const TOOLS: Tool[] = [
   {
     id: "flow",
-    name: "Dominion Flow",
+    name: "Flow Turbo",
     tagline: "Workflows em nodes",
     description:
       "Monte seu fluxo conectando nodes de prompt, imagem e vídeo num canvas, no estilo Freepik, e automatize a produção.",
     features: ["Canvas de nodes", "Prompt → imagem → vídeo", "Fluxos reaproveitáveis"],
-    url: "https://flow.google.com/shared/tool/2c2317c0-be12-4c7e-b271-15b0e6f8b674",
+    url: "https://flow.google.com/shared/tool/8f723a9e-ee8e-4e0d-91af-5f357cf4a638",
   },
   {
     id: "creator",

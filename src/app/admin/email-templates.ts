@@ -46,7 +46,7 @@ export const DEFAULT_TEMPLATES: EmailTemplate[] = [
     body:
       "Olá, {{nome}}!\n\n" +
       "Vimos que você já criou sua conta, mas ainda não ativou a ferramenta. É rapidinho:\n\n" +
-      "1. Abra o Dominion Flow (ou o Dominion Creator) no Google Flow e copie o código de sessão\n" +
+      "1. Abra o Flow Turbo (ou o Dominion Creator) no Google Flow e copie o código de sessão\n" +
       "2. Entre na sua área de membros: {{link_painel}}\n" +
       "3. Cole o código no campo de ativação e copie o token gerado\n" +
       "4. Volte para a ferramenta, cole o token e clique em Ativar\n\n" +
