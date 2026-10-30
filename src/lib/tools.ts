@@ -25,6 +25,6 @@ export const TOOLS: Tool[] = [
     description:
       "Da foto do produto aos vídeos prontos: gere imagens em lote, aprove as melhores, crie os takes com fala e baixe tudo de uma vez.",
     features: ["Até 4 imagens por prompt", "Aprovação de imagens e vídeos", "Download em lote"],
-    url: "https://flow.google.com/shared/tool/d2e8d2da-0313-4050-99c6-f810635ceae1",
+    url: "https://flow.google.com/shared/tool/1622f355-7761-4233-8556-7e11e1ced02d",
   },
 ];
