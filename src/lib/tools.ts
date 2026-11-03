@@ -20,7 +20,7 @@ export const TOOLS: Tool[] = [
   },
   {
     id: "creator",
-    name: "Dominion Creator",
+    name: "Creator Turbo",
     tagline: "Fábrica de vídeos",
     description:
       "Da foto do produto aos vídeos prontos: gere imagens em lote, aprove as melhores, crie os takes com fala e baixe tudo de uma vez.",

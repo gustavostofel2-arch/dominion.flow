@@ -45,7 +45,7 @@ function FlowArt() {
   );
 }
 
-/** Ilustração do Dominion Creator: tira de quadros + multiplicação de saídas. */
+/** Ilustração do Creator Turbo: tira de quadros + multiplicação de saídas. */
 function CreatorArt() {
   return (
     <div className="flex h-full w-full flex-col justify-center gap-4 px-6" aria-hidden="true">

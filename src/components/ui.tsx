@@ -96,7 +96,7 @@ export function Brand({ subtitle = "Área de membros" }: { subtitle?: string }) 
     <span className="flex items-center gap-3">
       <BrandMark />
       <span className="flex flex-col leading-tight">
-        <span className="text-[17px] font-semibold tracking-tight">Dominion</span>
+        <span className="text-[17px] font-semibold tracking-tight">Dominion Flow</span>
         <span className="brand-sub font-mono text-[10px] uppercase tracking-[0.24em] text-ink-mute">{subtitle}</span>
       </span>
     </span>

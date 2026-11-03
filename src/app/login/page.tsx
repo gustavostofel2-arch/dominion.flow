@@ -134,7 +134,7 @@ function LoginForm() {
 
           <div className="mt-10 max-w-md" aria-hidden="true">
             <div className="glass dk-float overflow-hidden">
-              <WindowBar title="flow.google.com · Dominion Creator" />
+              <WindowBar title="flow.google.com · Creator Turbo" />
               <div className="flex items-center justify-between gap-4 px-5 py-4">
                 <span className="min-w-0">
                   <span className="dk-text-3 block font-mono text-[10px] uppercase tracking-[0.2em]">
