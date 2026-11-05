@@ -5,6 +5,7 @@ import { C, StackedBars } from "./charts";
 import type { DayPoint, LedgerItem } from "./data";
 import { useAdmin } from "./messaging";
 import { HBars, Kpi, Panel, brl } from "./ui-kit";
+import SalesOrigin from "./origins";
 
 // Filtro de período do Dashboard: vendas, faturamento, reembolsos e uso de qualquer intervalo.
 // Tudo calculado aqui a partir do livro de vendas (sem buscar no banco de novo).
@@ -261,6 +262,8 @@ export default function PeriodSection() {
           )}
         </Panel>
       </div>
+
+      <SalesOrigin from={from} to={to} rangeLabel={rangeLabel} />
     </div>
   );
 }

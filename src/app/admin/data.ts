@@ -146,6 +146,23 @@ function utmSource(u: unknown): string | null {
   return null;
 }
 
+/** Todas as UTMs do objeto Utm da Lastlink (aceita UtmSource, utm_source, Source etc.). */
+export type Utm = { source: string | null; medium: string | null; campaign: string | null; content: string | null; term: string | null };
+function utmAll(u: unknown): Utm | null {
+  if (!u || typeof u !== "object") return null;
+  const out: Utm = { source: null, medium: null, campaign: null, content: null, term: null };
+  for (const [k, v] of Object.entries(u as Record<string, unknown>)) {
+    if (typeof v !== "string" || !v.trim()) continue;
+    const val = v.trim();
+    if (/source/i.test(k)) out.source = val.toLowerCase();
+    else if (/medium/i.test(k)) out.medium = val.toLowerCase();
+    else if (/campaign/i.test(k)) out.campaign = val;
+    else if (/content/i.test(k)) out.content = val;
+    else if (/term/i.test(k)) out.term = val;
+  }
+  return out.source || out.medium || out.campaign || out.content || out.term ? out : null;
+}
+
 const METHOD_LABEL: Record<string, string> = { credit_card: "Cartão", pix: "Pix", bankslip: "Boleto" };
 
 // ---------- Categorias de plano ----------
@@ -262,6 +279,14 @@ export type LedgerItem = {
   value: number;
   offer: string | null;
   method: string | null;
+  /** Data e hora (Brasília) para a lista de compras. */
+  at: string;
+  time: string;
+  email: string | null;
+  name: string | null;
+  /** UTMs da compra; sem elas, as do primeiro contato da pessoa (inferred = true). */
+  utm: Utm | null;
+  inferred: boolean;
 };
 
 export type AdminData = {
@@ -561,6 +586,13 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
     const k = e.email.toLowerCase();
     if (!lastPurchase.has(k)) lastPurchase.set(k, e);
   }
+  // Todas as UTMs do primeiro contato de cada e-mail (checkout, pedido, compra).
+  const firstUtmAll = new Map<string, Utm>();
+  for (const e of [...realEvents].reverse()) {
+    if (!e.email) continue;
+    const u = utmAll(e.utm);
+    if (u && !firstUtmAll.has(e.email.toLowerCase())) firstUtmAll.set(e.email.toLowerCase(), u);
+  }
   // Origem (utm) da primeira compra conhecida de cada e-mail.
   const firstUtm = new Map<string, string>();
   for (const e of [...realEvents].reverse()) {
@@ -848,13 +880,24 @@ export function buildAdminData(raw: RawAdminData, now = Date.now()): AdminData {
     ...renewals.map((e) => ({ e, kind: "renewal" as const })),
     ...refunds.map((e) => ({ e, kind: "refund" as const })),
     ...chargebacks.map((e) => ({ e, kind: "chargeback" as const })),
-  ].map(({ e, kind }) => ({
-    day: dayKey(e.received_at),
-    kind,
-    value: valueOf(e) ?? 0,
-    offer: e.offer,
-    method: e.method ? (METHOD_LABEL[e.method] ?? e.method) : null,
-  }));
+  ].map(({ e, kind }) => {
+    const email = e.email?.toLowerCase() ?? null;
+    const own = utmAll(e.utm);
+    const fallback = !own && email ? (firstUtmAll.get(email) ?? null) : null;
+    return {
+      day: dayKey(e.received_at),
+      kind,
+      value: valueOf(e) ?? 0,
+      offer: e.offer,
+      method: e.method ? (METHOD_LABEL[e.method] ?? e.method) : null,
+      at: e.received_at,
+      time: new Date(e.received_at).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }),
+      email,
+      name: (email && subByEmail.get(email)?.name?.trim()) || e.buyer_name?.trim() || null,
+      utm: own ?? fallback,
+      inferred: !own && !!fallback,
+    };
+  });
   const activationsByDay: Record<string, number> = {};
   for (const l of logs) {
     const k = dayKey(l.created_at);
