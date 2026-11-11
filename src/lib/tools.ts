@@ -16,7 +16,7 @@ export const TOOLS: Tool[] = [
     description:
       "Monte seu fluxo conectando nodes de prompt, imagem e vídeo num canvas, no estilo Freepik, e automatize a produção.",
     features: ["Canvas de nodes", "Prompt → imagem → vídeo", "Fluxos reaproveitáveis"],
-    url: "https://flow.google.com/shared/tool/7c10521d-6e8b-4008-b2d8-33a2e5f4f3d7",
+    url: "https://github.com/gustavostofel2-arch/dominion.flow.git",
   },
   {
     id: "creator",
