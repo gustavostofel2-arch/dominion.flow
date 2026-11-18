@@ -8,7 +8,7 @@ import { loadResendView, type ResendView } from "./data";
 import { DEFAULT_REPLY_TO, DEFAULT_TEMPLATES, EMAIL_CHECKOUT_URL, SUPPORT_WHATSAPP, fill, templateVars } from "./email-templates";
 
 // Ações do painel admin. TODAS conferem no servidor se quem chama é admin.
-// Nenhuma mexe em acesso, plano ou assinatura: só e-mails, modelos e leitura.
+// Só a grantAccessAction mexe em acesso (liberação manual); o resto é e-mails, modelos e leitura.
 
 const TZ = "America/Sao_Paulo";
 const MAX_PER_SEND = 40;
@@ -195,6 +195,61 @@ export async function saveReplyToAction(value: string) {
     .from("admin_settings")
     .upsert({ key: "reply_to", value: v || null, updated_at: new Date().toISOString() });
   return error ? { ok: false, error: "Não salvou. Rode o SQL do painel no Supabase." } : { ok: true };
+}
+
+// ---------- Liberar acesso à mão ----------
+
+export type GrantResult = { ok: boolean; error?: string; message?: string };
+
+/** Libera (ou renova) o acesso de um e-mail sem passar pela Lastlink: vitalício ou por N dias. */
+export async function grantAccessAction(input: { email: string; name?: string; mode: "vitalicio" | "dias"; days?: number }): Promise<GrantResult> {
+  const by = await requireAdmin();
+  const email = clean(input.email, 200).trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return { ok: false, error: "E-mail inválido." };
+  const name = clean(input.name, 120).trim() || null;
+
+  const lifetime = input.mode === "vitalicio";
+  const days = Math.floor(Number(input.days));
+  if (!lifetime && !(days >= 1 && days <= 3650)) return { ok: false, error: "Informe de 1 a 3650 dias." };
+
+  const fields = lifetime
+    ? {
+        status: "active" as const,
+        plan: "Vitalício (manual)",
+        billing_period: "Vitalício",
+        current_period_end: null,
+        next_billing_at: null,
+      }
+    : {
+        status: "active" as const,
+        plan: `Cortesia (${days} dias)`,
+        billing_period: null,
+        current_period_end: new Date(Date.now() + days * 86_400_000).toISOString(),
+        next_billing_at: null,
+      };
+  const reset = {
+    cancel_at_period_end: false,
+    canceled_at: null,
+    cancellation_reason: null,
+    renewal_pending: false,
+    refunded_at: null,
+    chargeback_at: null,
+  };
+
+  const db = createAdminClient();
+  const { data: existing, error: readErr } = await db.from("subscriptions").select("id, name").eq("email", email).maybeSingle();
+  if (readErr) return { ok: false, error: "Não consegui ler a base." };
+
+  const { error } = existing
+    ? await db.from("subscriptions").update({ ...fields, ...reset, name: existing.name ?? name }).eq("id", existing.id)
+    : await db.from("subscriptions").insert({ email, name, source: "manual", ...fields, ...reset });
+  if (error) return { ok: false, error: "Não salvou. Tente de novo." };
+
+  console.info(`[admin] acesso ${lifetime ? "vitalício" : `de ${days} dias`} liberado para ${email} por ${by}`);
+  return {
+    ok: true,
+    message: `${email}: acesso ${lifetime ? "vitalício" : `por ${days} dias`} liberado.${existing ? " (já estava na base, foi atualizado)" : ""}`,
+  };
 }
 
 // ---------- Ficha do cliente ----------

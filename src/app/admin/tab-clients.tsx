@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { grantAccessAction } from "./actions";
 import { C } from "./charts";
 import type { ClientRow } from "./data";
 import { useAdmin } from "./messaging";
@@ -340,6 +342,83 @@ function ClientsTable({ rows }: { rows: ClientRow[] }) {
   );
 }
 
+function GrantAccess() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [mode, setMode] = useState<"vitalicio" | "dias">("vitalicio");
+  const [days, setDays] = useState("30");
+  const [busy, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    start(async () => {
+      try {
+        const r = await grantAccessAction({ email, name, mode, days: Number(days) });
+        setMsg({ ok: r.ok, text: r.ok ? (r.message ?? "Acesso liberado.") : (r.error ?? "Erro.") });
+        if (r.ok) {
+          setEmail("");
+          setName("");
+          router.refresh();
+        }
+      } catch {
+        setMsg({ ok: false, text: "Não deu certo. Tente de novo." });
+      }
+    });
+  };
+
+  return (
+    <Panel
+      title="Liberar acesso à mão"
+      sub="Dê acesso a um e-mail sem compra na Lastlink (cortesia, sócio, suporte). Se a pessoa ainda não tem conta, o acesso fica esperando ela se cadastrar com esse e-mail."
+      right={
+        <button type="button" onClick={() => setOpen((o) => !o)} className="btn-ghost !h-9">
+          {open ? "Fechar" : "＋ Adicionar e-mail"}
+        </button>
+      }
+    >
+      {open ? (
+        <form onSubmit={submit} className="grid gap-3 lg:grid-cols-[1.4fr_1fr_auto_auto] lg:items-end">
+          <label className="block text-[13px] text-ink-mute">
+            E-mail
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@email.com" className="field !h-11 mt-1" />
+          </label>
+          <label className="block text-[13px] text-ink-mute">
+            Nome (opcional)
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="field !h-11 mt-1" />
+          </label>
+          <label className="block text-[13px] text-ink-mute">
+            Tipo
+            <select value={mode} onChange={(e) => setMode(e.target.value as "vitalicio" | "dias")} className="field !h-11 mt-1">
+              <option value="vitalicio" className="bg-[#0b1222]">Vitalício</option>
+              <option value="dias" className="bg-[#0b1222]">Por dias</option>
+            </select>
+          </label>
+          {mode === "dias" && (
+            <label className="block text-[13px] text-ink-mute lg:w-28">
+              Dias
+              <input type="number" min={1} max={3650} required value={days} onChange={(e) => setDays(e.target.value)} className="field !h-11 mt-1" />
+            </label>
+          )}
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex h-11 items-center justify-center rounded-lg bg-[#ff2d55] px-4 text-sm font-semibold text-white transition hover:bg-[#e91e48] disabled:opacity-60 lg:col-start-auto"
+          >
+            {busy ? "Liberando…" : "Liberar acesso"}
+          </button>
+        </form>
+      ) : (
+        <p className="text-[13px] text-ink-mute">Clique em “Adicionar e-mail” para liberar um acesso manual.</p>
+      )}
+      {msg && <p className={`mt-3 text-[13px] ${msg.ok ? "text-[#4ade80]" : "text-[#ff8fa3]"}`}>{msg.text}</p>}
+    </Panel>
+  );
+}
+
 export default function TabClients() {
   const { data, openClient } = useAdmin();
   const s = data.clientStats;
@@ -398,6 +477,8 @@ export default function TabClients() {
           </ul>
         )}
       </Panel>
+
+      <GrantAccess />
 
       <Panel title="Todos os clientes" sub="Clique em um cliente para ver a ficha completa. Marque para enviar e-mail ou exportar.">
         <ClientsTable rows={data.clients} />
