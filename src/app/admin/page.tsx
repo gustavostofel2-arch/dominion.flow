@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/admin";
 import AdminView from "./admin-view";
+import { loadAffiliateSales } from "./affiliates";
 import { loadAdminData } from "./data";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,10 @@ export default async function AdminPage() {
   // nem fica sabendo que esta tela existe.
   if (!user || !(await isAdminEmail(user.email))) notFound();
 
-  const data = await loadAdminData();
-  return <AdminView data={data} />;
+  const [data, affiliateSales] = await Promise.all([
+    loadAdminData(),
+    // Se a leitura dos afiliados falhar, o resto do painel continua funcionando.
+    loadAffiliateSales().catch(() => []),
+  ]);
+  return <AdminView data={data} affiliateSales={affiliateSales} />;
 }
