@@ -50,7 +50,7 @@ export const RESULT: Record<string, { label: string; tone: Tone }> = {
 };
 export const resultOf = (r: string) => RESULT[r] ?? { label: r, tone: "mute" as Tone };
 
-function Info({ label, value }: { label: string; value: ReactNode }) {
+export function Info({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0">
       <dt className="text-[12px] text-ink-mute">{label}</dt>

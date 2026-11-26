@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { C } from "./charts";
 import type { AffiliateSale } from "./affiliates";
+import AffiliateDrawer from "./affiliate-drawer";
 import { Badge, Empty, Kpi, Pager, Panel, brl, usePager } from "./ui-kit";
 
 // Aba Afiliados: quem vendeu, quanto vendeu e quanto de comissão gerou.
@@ -64,6 +65,7 @@ export default function TabAffiliates({ sales }: { sales: AffiliateSale[] }) {
   const [openedAt] = useState(() => Date.now());
   const [sort, setSort] = useState<SortId>("vendas");
   const [q, setQ] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
 
   const inPeriod = useMemo(() => {
     const days = PERIODS.find((x) => x.id === period)?.days ?? null;
@@ -202,7 +204,7 @@ export default function TabAffiliates({ sales }: { sales: AffiliateSale[] }) {
                 </thead>
                 <tbody>
                   {p.slice.map((a, i) => (
-                    <tr key={a.key} className="border-b border-white/5 align-top">
+                    <tr key={a.key} onClick={() => setSelected(a.key)} className="cursor-pointer border-b border-white/5 align-top transition hover:bg-white/[0.04]">
                       <td className="py-3 pl-4 font-mono text-[12px] text-ink-mute">{String(p.from + i).padStart(2, "0")}</td>
                       <td className="py-3 pr-4">
                         <div className="max-w-[300px]">
@@ -233,7 +235,11 @@ export default function TabAffiliates({ sales }: { sales: AffiliateSale[] }) {
         ) : (
           <ul>
             {recent.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-white/5 py-2.5">
+              <li
+                key={s.id}
+                onClick={() => setSelected(s.affKey)}
+                className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 border-b border-white/5 py-2.5 transition hover:bg-white/[0.03]"
+              >
                 <span className="w-28 shrink-0 font-mono text-[12px] text-ink-mute">{s.when}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">{s.affName || s.affEmail || "Afiliado"}</p>
@@ -250,6 +256,8 @@ export default function TabAffiliates({ sales }: { sales: AffiliateSale[] }) {
           </ul>
         )}
       </Panel>
+
+      {selected && <AffiliateDrawer key={selected} affKey={selected} sales={sales} onClose={() => setSelected(null)} />}
     </div>
   );
 }
