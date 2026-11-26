@@ -37,6 +37,12 @@ type AffRow = {
   refunds: number;
   revenue: number;
   commission: number;
+  /** Vendas (sem reembolso) por período da cobrança. */
+  mensal: number;
+  anual: number;
+  outros: number;
+  /** Clientes indicados que têm acesso ativo agora. */
+  active: number;
   lastAt: string;
   lastWhen: string;
 };
@@ -48,9 +54,9 @@ function csvCell(v: unknown) {
 const money = (n: number) => n.toFixed(2).replace(".", ",");
 
 function exportCsv(rows: AffRow[]) {
-  const head = ["Posição", "Afiliado", "E-mail", "Comissão %", "Vendas novas", "Renovações", "Reembolsos", "Faturamento", "Comissão", "Última venda"];
+  const head = ["Posição", "Afiliado", "E-mail", "Comissão %", "Vendas novas", "Renovações", "Mensais", "Anuais", "Outros", "Assinaturas ativas", "Reembolsos", "Faturamento", "Comissão", "Última venda"];
   const lines = rows.map((a, i) =>
-    [i + 1, a.name, a.email, a.pct, a.news, a.renewals, a.refunds, money(a.revenue), money(a.commission), a.lastWhen].map(csvCell).join(";"),
+    [i + 1, a.name, a.email, a.pct, a.news, a.renewals, a.mensal, a.anual, a.outros, a.active, a.refunds, money(a.revenue), money(a.commission), a.lastWhen].map(csvCell).join(";"),
   );
   // BOM para o Excel abrir acentos certinho; ";" é o separador do Excel em português.
   const blob = new Blob(["﻿" +[head.join(";"), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
@@ -105,13 +111,18 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
     return sales.filter((s) => new Date(s.at).getTime() >= since);
   }, [sales, period, openedAt]);
 
+  const { data } = useAdmin();
+  const activeEmails = useMemo(() => new Set(data.clients.filter((c) => c.active).map((c) => c.email)), [data.clients]);
+
   const rows = useMemo(() => {
     const map = new Map<string, AffRow>();
+    const buyers = new Map<string, Set<string>>();
     for (const s of inPeriod) {
       let a = map.get(s.affKey);
       if (!a) {
-        a = { key: s.affKey, name: s.affName, email: s.affEmail, pct: s.pct, news: 0, renewals: 0, refunds: 0, revenue: 0, commission: 0, lastAt: s.at, lastWhen: s.when };
+        a = { key: s.affKey, name: s.affName, email: s.affEmail, pct: s.pct, news: 0, renewals: 0, refunds: 0, revenue: 0, commission: 0, mensal: 0, anual: 0, outros: 0, active: 0, lastAt: s.at, lastWhen: s.when };
         map.set(s.affKey, a);
+        buyers.set(s.affKey, new Set());
       }
       if (s.at > a.lastAt) {
         a.lastAt = s.at;
@@ -126,8 +137,16 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
       }
       if (s.renewal) a.renewals++;
       else a.news++;
+      if (s.period === "Mensal") a.mensal++;
+      else if (s.period === "Anual") a.anual++;
+      else a.outros++;
+      if (s.buyer) buyers.get(s.affKey)?.add(s.buyer);
       a.revenue += s.value;
       a.commission += s.commission;
+    }
+    for (const [key, set] of buyers) {
+      const a = map.get(key);
+      if (a) a.active = [...set].filter((e) => activeEmails.has(e)).length;
     }
     const out = [...map.values()];
     out.sort((x, y) => {
@@ -137,7 +156,7 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
       return y.news + y.renewals - (x.news + x.renewals) || y.revenue - x.revenue;
     });
     return out;
-  }, [inPeriod, sort]);
+  }, [inPeriod, sort, activeEmails]);
 
   const list = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -220,13 +239,17 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
         ) : (
           <>
             <div className="mt-4 overflow-x-auto rounded-xl border border-white/5">
-              <table className="w-full min-w-[820px] text-left text-sm">
+              <table className="w-full min-w-[1080px] text-left text-sm">
                 <thead className="bg-[#0b1222]">
                   <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.14em] text-ink-mute">
                     <th className="w-12 py-3 pl-4 font-medium">#</th>
                     <th className="py-3 pr-4 font-medium">Afiliado</th>
                     <th className="py-3 pr-4 text-right font-medium">Novas</th>
                     <th className="py-3 pr-4 text-right font-medium">Renov.</th>
+                    <th className="py-3 pr-4 text-right font-medium">Mensal</th>
+                    <th className="py-3 pr-4 text-right font-medium">Anual</th>
+                    <th className="py-3 pr-4 text-right font-medium">Outros</th>
+                    <th className="py-3 pr-4 text-right font-medium">Ativas</th>
                     <th className="py-3 pr-4 text-right font-medium">Reemb.</th>
                     <th className="py-3 pr-4 text-right font-medium">Faturamento</th>
                     <th className="py-3 pr-4 text-right font-medium">Comissão</th>
@@ -246,6 +269,10 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
                       </td>
                       <td className="py-3 pr-4 text-right font-mono text-ink-soft">{a.news}</td>
                       <td className="py-3 pr-4 text-right font-mono text-ink-soft">{a.renewals}</td>
+                      <td className="py-3 pr-4 text-right font-mono text-ink-soft">{a.mensal}</td>
+                      <td className="py-3 pr-4 text-right font-mono text-ink-soft">{a.anual}</td>
+                      <td className="py-3 pr-4 text-right font-mono text-ink-soft">{a.outros}</td>
+                      <td className="py-3 pr-4 text-right font-mono font-medium text-[#2ee6b8]">{a.active}</td>
                       <td className="py-3 pr-4 text-right font-mono">{a.refunds > 0 ? <span className="text-[#ff8fa3]">{a.refunds}</span> : <span className="text-ink-mute">0</span>}</td>
                       <td className="py-3 pr-4 text-right text-ink-soft">{brl(a.revenue, true)}</td>
                       <td className="py-3 pr-4 text-right font-medium text-ink">{brl(a.commission, true)}</td>
@@ -278,6 +305,7 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
                     cliente {s.buyer ?? "—"} · {s.offer ?? "—"}
                   </p>
                 </div>
+                <Badge tone={s.period === "Vitalício" ? "warn" : "ok"}>{s.period}</Badge>
                 {s.renewal && <Badge tone="info">Renovação</Badge>}
                 {s.refunded && <Badge tone="bad">Reembolsada</Badge>}
                 <span className="w-24 text-right text-sm text-ink-soft">{brl(s.value, true)}</span>
