@@ -12,7 +12,6 @@ import type { Recipient } from "./email-templates";
 import type { AdminData, ResendView } from "./data";
 import { getResendViewAction } from "./actions";
 import { AdminCtx, ComposeModal } from "./messaging";
-import type { AffiliateSale } from "./affiliates";
 import TabAffiliates from "./tab-affiliates";
 import TabClients from "./tab-clients";
 import { TabActivation, TabDashboard, TabEmails, TabLastlink, TabUsage } from "./tabs";
@@ -69,7 +68,7 @@ function TabButton({
   );
 }
 
-export default function AdminView({ data, affiliateSales }: { data: AdminData; affiliateSales: AffiliateSale[] }) {
+export default function AdminView({ data }: { data: AdminData }) {
   const [tab, setTab] = useState<TabId>("dashboard");
   const [compose, setCompose] = useState<{ targets: Recipient[]; template: string } | null>(null);
   const [clientEmail, setClientEmail] = useState<string | null>(null);
@@ -281,7 +280,7 @@ export default function AdminView({ data, affiliateSales }: { data: AdminData; a
           {tab === "dashboard" && <TabDashboard go={go} />}
           {tab === "ativacao" && <TabActivation />}
           {tab === "clientes" && <TabClients />}
-          {tab === "afiliados" && <TabAffiliates sales={affiliateSales} />}
+          {tab === "afiliados" && <TabAffiliates />}
           {tab === "uso" && <TabUsage />}
           {tab === "lastlink" && <TabLastlink />}
           {tab === "emails" && <TabEmails />}

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAdminEmail } from "@/lib/admin";
 import { dailyEmailLimit, emailConfigured, forgetSentEmailsCache, listSentEmails, renderEmailHtml, sendEmail } from "@/lib/email";
+import { loadAffiliateSales, type AffiliateSale } from "./affiliates";
 import { loadResendView, type ResendView } from "./data";
 import { DEFAULT_REPLY_TO, DEFAULT_TEMPLATES, EMAIL_CHECKOUT_URL, SUPPORT_WHATSAPP, fill, templateVars } from "./email-templates";
 
@@ -332,6 +333,13 @@ export async function getClientDetailAction(emailRaw: string, userId: string | n
       by: m.sent_by,
     })),
   };
+}
+
+// ---------- Afiliados (lidos só quando a aba Afiliados abre, para não pesar o painel) ----------
+
+export async function getAffiliateSalesAction(): Promise<AffiliateSale[]> {
+  await requireAdmin();
+  return loadAffiliateSales();
 }
 
 // ---------- Resend (só quando o admin pede: abrir a aba E-mails ou clicar em atualizar) ----------

@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getAffiliateSalesAction } from "./actions";
+import { useAdmin } from "./messaging";
 import { C } from "./charts";
 import type { AffiliateSale } from "./affiliates";
 import AffiliateDrawer from "./affiliate-drawer";
@@ -59,7 +61,36 @@ function exportCsv(rows: AffRow[]) {
   URL.revokeObjectURL(a.href);
 }
 
-export default function TabAffiliates({ sales }: { sales: AffiliateSale[] }) {
+export default function TabAffiliates() {
+  const { data } = useAdmin();
+  // As vendas de afiliados são lidas só ao abrir esta aba (e de novo quando o painel atualiza).
+  const [sales, setSales] = useState<AffiliateSale[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getAffiliateSalesAction()
+      .then((s) => {
+        if (!alive) return;
+        setSales(s);
+        setFailed(false);
+      })
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, [data.generatedAt]);
+
+  if (!sales) {
+    return failed ? (
+      <Empty>Não consegui carregar os afiliados. Clique em Atualizar para tentar de novo.</Empty>
+    ) : (
+      <Empty>Carregando os afiliados…</Empty>
+    );
+  }
+  return <AffiliatesView sales={sales} />;
+}
+
+function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
   const [period, setPeriod] = useState<PeriodId>("all");
   // Momento em que a aba abriu: base dos períodos (7/30/90 dias).
   const [openedAt] = useState(() => Date.now());
