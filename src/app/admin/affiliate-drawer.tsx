@@ -14,6 +14,12 @@ import { Badge, Columns, Empty, brl } from "./ui-kit";
 // Ofertas de mentoria: "[mentorados]", "[MENTORADOS]", "[Ment. Individuais]".
 const MENTOR_RE = /mentorad|\bment\./i;
 const PAYMENT_EVENTS = new Set(["purchase_order_confirmed", "recurrent_payment"]);
+type MTab = "cliente" | "vendas" | "historico";
+const MTABS: { id: MTab; label: string }[] = [
+  { id: "vendas", label: "Vendas" },
+  { id: "cliente", label: "Cliente" },
+  { id: "historico", label: "Histórico" },
+];
 const PERIOD_ORDER = ["Mensal", "Bimestral", "Trimestral", "Semestral", "Anual", "Vitalício"];
 
 function initials(name: string | null, email: string | null) {
@@ -25,20 +31,21 @@ function initials(name: string | null, email: string | null) {
 
 function Stat({ label, value, sub, color }: { label: string; value: ReactNode; sub?: ReactNode; color: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] p-3 sm:p-4">
       <div className="flex items-center gap-2">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
         <p className="truncate text-[11px] font-medium uppercase tracking-[0.12em] text-ink-mute">{label}</p>
       </div>
-      <p className="mt-2 text-[26px] font-semibold leading-none tracking-[-0.03em]">{value}</p>
+      <p className="mt-2 truncate text-[22px] font-semibold leading-none tracking-[-0.03em] sm:text-[26px]">{value}</p>
       {sub && <p className="mt-1.5 truncate text-[12px] text-ink-mute">{sub}</p>}
     </div>
   );
 }
 
-function Section({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
+function Section({ title, right, show, children }: { title: string; right?: ReactNode; show: boolean; children: ReactNode }) {
+  // Celular/tablet: só aparece a seção da aba escolhida. Computador (xl): todas.
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-5">
+    <section className={`rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-5 xl:block ${show ? "block" : "hidden"}`}>
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h4 className="font-semibold">{title}</h4>
         {right && <span className="text-[12px] text-ink-mute">{right}</span>}
@@ -67,6 +74,7 @@ export default function AffiliateDrawer({
 
   const [detail, setDetail] = useState<ClientDetail | null>(null);
   const [error, setError] = useState(false);
+  const [mtab, setMtab] = useState<MTab>("vendas");
 
   useEffect(() => {
     if (!email) return;
@@ -158,42 +166,65 @@ export default function AffiliateDrawer({
         aria-label={`Ficha do afiliado ${head.affName ?? email ?? ""}`}
       >
         {/* Cabeçalho */}
-        <div className="flex flex-wrap items-center gap-4 border-b border-white/10 px-5 py-5 sm:px-8">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3fd0ff] to-[#ff2d55] text-lg font-bold text-white shadow-[0_0_30px_rgba(63,208,255,0.25)]">
-            {initials(head.affName, email)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{head.affName || email || "Afiliado"}</p>
-            <p className="truncate text-[13px] text-ink-mute">{email ?? "sem e-mail"}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge tone="warn">Afiliado{head.pct !== null ? ` · ${head.pct}%` : ""}</Badge>
-              <Badge tone={access.tone}>{access.label}</Badge>
-              <Badge tone={mentor.tone}>{mentor.label}</Badge>
-              {client && <Badge tone="mute">{client.plan}</Badge>}
+        <div className="border-b border-white/10 px-4 py-4 sm:px-8 sm:py-5">
+          <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3fd0ff] to-[#ff2d55] text-base font-bold text-white shadow-[0_0_30px_rgba(63,208,255,0.25)] sm:h-14 sm:w-14 sm:text-lg">
+              {initials(head.affName, email)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xl font-semibold tracking-tight sm:text-3xl">{head.affName || email || "Afiliado"}</p>
+              <p className="truncate text-[13px] text-ink-mute">{email ?? "sem e-mail"}</p>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {email && <CopyButton text={email} label="E-mail" />}
-            {client?.phone && <CopyButton text={client.phone} label="Telefone" />}
-            {client?.whatsapp && (
-              <a
-                href={`https://wa.me/${client.whatsapp}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-8 items-center rounded-lg border border-[#2ee6b8]/35 bg-[#2ee6b8]/10 px-2.5 text-xs font-medium text-[#2ee6b8]"
-              >
-                WhatsApp
-              </a>
-            )}
-            <button type="button" onClick={onClose} className="btn-ghost !h-9">
-              Fechar ✕
+            <button type="button" onClick={onClose} className="btn-ghost !h-10 shrink-0 !px-3.5" aria-label="Fechar">
+              <span className="sm:hidden">✕</span>
+              <span className="hidden sm:inline">Fechar ✕</span>
             </button>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Badge tone="warn">Afiliado{head.pct !== null ? ` · ${head.pct}%` : ""}</Badge>
+            <Badge tone={access.tone}>{access.label}</Badge>
+            <Badge tone={mentor.tone}>{mentor.label}</Badge>
+            {client && <Badge tone="mute">{client.plan}</Badge>}
+          </div>
+          {(email || client?.phone || client?.whatsapp) && (
+            <div className="-mx-1 mt-3 flex items-center gap-2 overflow-x-auto px-1 pb-1">
+              {email && <CopyButton text={email} label="E-mail" />}
+              {client?.phone && <CopyButton text={client.phone} label="Telefone" />}
+              {client?.whatsapp && (
+                <a
+                  href={`https://wa.me/${client.whatsapp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 shrink-0 items-center rounded-lg border border-[#2ee6b8]/35 bg-[#2ee6b8]/10 px-2.5 text-xs font-medium text-[#2ee6b8]"
+                >
+                  WhatsApp
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6">
+        {/* Abas (celular e tablet) */}
+        <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 bg-white/[0.02] px-3 py-2 xl:hidden" role="tablist" aria-label="Seções da ficha">
+          {MTABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={mtab === t.id}
+              onClick={() => setMtab(t.id)}
+              className={`h-10 rounded-xl text-[13px] font-medium transition ${
+                mtab === t.id ? "bg-[#3fd0ff]/15 text-[#7be3ff] ring-1 ring-[#3fd0ff]/40" : "text-ink-mute active:bg-white/5"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:space-y-5 sm:px-8 sm:py-6">
           {/* Números do afiliado */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-6">
             <Stat label="Vendas" value={stats.news + stats.renewals} sub={`${stats.news} novas · ${stats.renewals} renov.`} color="#3fd0ff" />
             <Stat label="Assinaturas ativas" value={stats.activeBuyers} sub={`de ${stats.buyers} cliente${stats.buyers === 1 ? "" : "s"} indicado${stats.buyers === 1 ? "" : "s"}`} color="#2ee6b8" />
             <Stat label="Mensais" value={mensal} sub="vendas no mensal" color="#7c8cff" />
@@ -202,10 +233,10 @@ export default function AffiliateDrawer({
             <Stat label="Comissão gerada" value={brl(stats.commission, true)} sub={head.pct !== null ? `${head.pct}% por venda` : undefined} color="#ff2d55" />
           </div>
 
-          <div className="grid gap-5 xl:grid-cols-2">
+          <div className="grid gap-4 sm:gap-5 xl:grid-cols-2">
             {/* Coluna da esquerda: ele como cliente */}
-            <div className="space-y-5">
-              <Section title="Como cliente do Dominion Flow">
+            <div className="space-y-4 sm:space-y-5">
+              <Section title="Como cliente do Dominion Flow" show={mtab === "cliente"}>
                 {!email ? (
                   <Empty>O aviso da Lastlink não trouxe o e-mail deste afiliado.</Empty>
                 ) : client ? (
@@ -242,18 +273,18 @@ export default function AffiliateDrawer({
                 )}
               </Section>
 
-              {email && error && <p className="dk-alert-error rounded-xl px-4 py-3 text-sm">Não consegui carregar o histórico dele.</p>}
-              {email && !detail && !error && <p className="text-sm text-ink-mute">Carregando o histórico dele como cliente…</p>}
+              {email && error && <p className={`dk-alert-error rounded-xl px-4 py-3 text-sm xl:block ${mtab === "vendas" ? "hidden" : "block"}`}>Não consegui carregar o histórico dele.</p>}
+              {email && !detail && !error && <p className={`text-sm text-ink-mute xl:block ${mtab === "vendas" ? "hidden" : "block"}`}>Carregando o histórico dele como cliente…</p>}
 
               {detail && (
                 <>
                   {client?.hasAccount && (
-                    <Section title="Uso nos últimos 30 dias" right={`${detail.totalTokens} tokens no total`}>
+                    <Section title="Uso nos últimos 30 dias" right={`${detail.totalTokens} tokens no total`} show={mtab === "cliente"}>
                       <Columns items={detail.usage} every={5} />
                     </Section>
                   )}
 
-                  <Section title="Histórico como comprador (Lastlink)" right={`${detail.timeline.length} aviso${detail.timeline.length === 1 ? "" : "s"}`}>
+                  <Section title="Histórico como comprador (Lastlink)" right={`${detail.timeline.length} aviso${detail.timeline.length === 1 ? "" : "s"}`} show={mtab === "historico"}>
                     {detail.timeline.length === 0 ? (
                       <Empty>Nenhum aviso da Lastlink com este e-mail como comprador.</Empty>
                     ) : (
@@ -285,8 +316,8 @@ export default function AffiliateDrawer({
             </div>
 
             {/* Coluna da direita: ele como afiliado */}
-            <div className="space-y-5">
-              <Section title="Por período" right={`${stats.news + stats.renewals} venda${stats.news + stats.renewals === 1 ? "" : "s"} sem reembolso`}>
+            <div className="space-y-4 sm:space-y-5">
+              <Section title="Por período" right={`${stats.news + stats.renewals} venda${stats.news + stats.renewals === 1 ? "" : "s"} sem reembolso`} show={mtab === "vendas"}>
                 {stats.periodList.length === 0 ? (
                   <Empty>Nenhuma venda válida.</Empty>
                 ) : (
@@ -306,24 +337,29 @@ export default function AffiliateDrawer({
                 </dl>
               </Section>
 
-              <Section title="Vendas como afiliado" right={`${mine.length} no total`}>
+              <Section title="Vendas como afiliado" right={`${mine.length} no total`} show={mtab === "vendas"}>
                 <ul className="divide-y divide-white/5">
                   {mine.map((s) => {
                     const buyer = s.buyer ? clientByEmail.get(s.buyer) : undefined;
                     return (
                       <li key={s.id} className="py-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-[12px] text-ink-mute">{s.when}</span>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm text-ink">{s.buyer ?? "—"}</p>
+                            <p className="truncate text-[12px] text-ink-mute">{s.offer ?? "—"}</p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="text-sm font-semibold text-[#ffb547]">{brl(s.commission, true)}</p>
+                            <p className="text-[12px] text-ink-mute">{brl(s.value, true)}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="mr-1 font-mono text-[12px] text-ink-mute">{s.when}</span>
                           <Badge tone={s.period === "Vitalício" ? "warn" : "ok"}>{s.period}</Badge>
                           {s.renewal && <Badge tone="info">Renovação</Badge>}
                           {s.refunded && <Badge tone="bad">Reembolsada</Badge>}
                           {buyer && <Badge tone={buyer.active ? "ok" : "mute"}>{buyer.active ? "Cliente ativo" : "Cliente inativo"}</Badge>}
-                          <span className="ml-auto text-sm text-ink-soft">{brl(s.value, true)}</span>
-                          <span className="text-sm font-medium text-[#ffb547]">{brl(s.commission, true)}</span>
                         </div>
-                        <p className="mt-1 truncate text-[12px] text-ink-mute">
-                          cliente {s.buyer ?? "—"} · {s.offer ?? "—"}
-                        </p>
                       </li>
                     );
                   })}
@@ -331,7 +367,7 @@ export default function AffiliateDrawer({
               </Section>
 
               {detail && (
-                <Section title="E-mails enviados" right={`${detail.emails.length}`}>
+                <Section title="E-mails enviados" right={`${detail.emails.length}`} show={mtab === "historico"}>
                   {detail.emails.length === 0 ? (
                     <Empty>Nenhum e-mail enviado pelo painel.</Empty>
                   ) : (

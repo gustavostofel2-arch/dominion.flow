@@ -209,7 +209,7 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
             placeholder="Buscar por nome ou e-mail do afiliado"
             className="field !h-11 lg:max-w-sm"
           />
-          <div className="flex flex-wrap gap-2 lg:ml-auto">
+          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
             {PERIODS.map((x) => (
               <button
                 key={x.id}
@@ -222,7 +222,7 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
                 {x.label}
               </button>
             ))}
-            <select value={sort} onChange={(e) => setSort(e.target.value as SortId)} className="field !h-9 w-48 !py-0 text-xs" aria-label="Ordenar">
+            <select value={sort} onChange={(e) => setSort(e.target.value as SortId)} className="field !h-9 w-full !py-0 text-xs sm:w-48" aria-label="Ordenar">
               {SORTS.map((s) => (
                 <option key={s.id} value={s.id} className="bg-[#0b1222]">
                   {s.label}
@@ -238,7 +238,50 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
           </div>
         ) : (
           <>
-            <div className="mt-4 overflow-x-auto rounded-xl border border-white/5">
+            {/* Celular e tablet: um cartão por afiliado */}
+            <ul className="mt-4 grid gap-3 lg:hidden">
+              {p.slice.map((a, i) => (
+                <li key={a.key} onClick={() => setSelected(a.key)} className="cursor-pointer rounded-2xl border border-white/10 bg-white/[0.03] p-4 active:bg-white/[0.06]">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#3fd0ff]/12 font-mono text-[13px] font-semibold text-[#7be3ff]">
+                      {p.from + i}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-ink">{a.name || "—"}</p>
+                      <p className="truncate text-[13px] text-ink-mute">{a.email ?? "sem e-mail"}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[17px] font-semibold leading-tight text-[#ffb547]">{brl(a.commission, true)}</p>
+                      <p className="text-[11px] text-ink-mute">comissão{a.pct !== null ? ` · ${a.pct}%` : ""}</p>
+                    </div>
+                  </div>
+                  <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    {[
+                      ["Vendas", a.news + a.renewals],
+                      ["Mensal", a.mensal],
+                      ["Anual", a.anual],
+                      ["Ativas", a.active],
+                      ["Outros", a.outros],
+                      ["Reemb.", a.refunds],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl bg-white/[0.04] px-2 py-2">
+                        <dd className={`font-mono text-[17px] font-semibold ${label === "Ativas" ? "text-[#2ee6b8]" : label === "Reemb." && Number(value) > 0 ? "text-[#ff8fa3]" : "text-ink"}`}>{value}</dd>
+                        <dt className="text-[11px] text-ink-mute">{label}</dt>
+                      </div>
+                    ))}
+                  </dl>
+                  <div className="mt-3 flex items-center justify-between gap-3 text-[12px] text-ink-mute">
+                    <span>
+                      Faturamento <span className="text-ink-soft">{brl(a.revenue, true)}</span>
+                    </span>
+                    <span>Última: {a.lastWhen}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Computador: tabela */}
+            <div className="mt-4 hidden overflow-x-auto rounded-xl border border-white/5 lg:block">
               <table className="w-full min-w-[1080px] text-left text-sm">
                 <thead className="bg-[#0b1222]">
                   <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.14em] text-ink-mute">
@@ -296,20 +339,24 @@ function AffiliatesView({ sales }: { sales: AffiliateSale[] }) {
               <li
                 key={s.id}
                 onClick={() => setSelected(s.affKey)}
-                className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 border-b border-white/5 py-2.5 transition hover:bg-white/[0.03]"
+                className="cursor-pointer border-b border-white/5 py-3 transition hover:bg-white/[0.03]"
               >
-                <span className="w-28 shrink-0 font-mono text-[12px] text-ink-mute">{s.when}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{s.affName || s.affEmail || "Afiliado"}</p>
-                  <p className="truncate text-[12px] text-ink-mute">
-                    cliente {s.buyer ?? "—"} · {s.offer ?? "—"}
-                  </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">{s.affName || s.affEmail || "Afiliado"}</p>
+                    <p className="truncate text-[12px] text-ink-mute">cliente {s.buyer ?? "—"}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-semibold text-[#ffb547]">{brl(s.commission, true)}</p>
+                    <p className="text-[12px] text-ink-mute">{brl(s.value, true)}</p>
+                  </div>
                 </div>
-                <Badge tone={s.period === "Vitalício" ? "warn" : "ok"}>{s.period}</Badge>
-                {s.renewal && <Badge tone="info">Renovação</Badge>}
-                {s.refunded && <Badge tone="bad">Reembolsada</Badge>}
-                <span className="w-24 text-right text-sm text-ink-soft">{brl(s.value, true)}</span>
-                <span className="w-24 text-right text-sm font-medium text-[#ffb547]">{brl(s.commission, true)}</span>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-[12px] text-ink-mute">{s.when}</span>
+                  <Badge tone={s.period === "Vitalício" ? "warn" : "ok"}>{s.period}</Badge>
+                  {s.renewal && <Badge tone="info">Renovação</Badge>}
+                  {s.refunded && <Badge tone="bad">Reembolsada</Badge>}
+                </div>
               </li>
             ))}
           </ul>
